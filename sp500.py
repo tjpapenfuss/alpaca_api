@@ -1,5 +1,7 @@
 import pandas as pd
 
+# Use the Kaggle dataset. https://www.kaggle.com/datasets/andrewmvd/sp-500-stocks?resource=download
+
 # Read the CSV file into a DataFrame
 df = pd.read_csv('sp500_companies.csv')
 
