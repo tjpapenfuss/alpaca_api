@@ -8,8 +8,8 @@ import time
 import config
 import math
 
-api_key = config.ALPACA_API_KEY
-api_secret = config.ALPACA_API_SECRET
+api_key = config.QQQ_API_KEY
+api_secret = config.QQQ_API_SECRET
 TOTAL_PORTFOLIO_VALUE = 495000
 
 trading_client = TradingClient(api_key, api_secret, paper=True)
@@ -19,10 +19,10 @@ account = trading_client.get_account()
 # Use the Kaggle dataset. https://www.kaggle.com/datasets/andrewmvd/sp-500-stocks?resource=download
 
 # Read the CSV file into a DataFrame
-df = pd.read_csv('sp500_companies.csv')
+df = pd.read_csv('QQQ.csv')
 
 # Select a reduced set of columns
-reduced_df = df[['Symbol', 'Weight']]
+reduced_df = df[['Holding Ticker', 'Weight']]
 
 # half the portfolio in individual stocks. The other half in SPY ETF.
 # market_order_data = MarketOrderRequest(
@@ -40,9 +40,9 @@ reduced_df = df[['Symbol', 'Weight']]
 for index, row in reduced_df.iterrows():
     # Error handling for invalid symbols or insufficient funds
     try:
-        stock_symbol = row['Symbol']
+        stock_symbol = row['Holding Ticker'].strip()
         # half the portfolio in individual stocks. The other half in SPY ETF. 
-        stock_notional_purchase = math.floor((row['Weight']*TOTAL_PORTFOLIO_VALUE))
+        stock_notional_purchase = math.floor((row['Weight']*TOTAL_PORTFOLIO_VALUE*0.01))
         # stock_notional_purchase = round((row['Weight']*TOTAL_PORTFOLIO_VALUE)/2, 2)
         # Create a market order request. This pulls the symbol and nortional from the S&P500 dataset
         market_order_data = MarketOrderRequest(

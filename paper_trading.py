@@ -15,17 +15,17 @@ account = trading_client.get_account()
 
 #print(account)
 
-# market_order_data = MarketOrderRequest(
-#                     symbol="SPY",
-#                     qty=10,
-#                     side=OrderSide.BUY,
-#                     time_in_force=TimeInForce.DAY
-#                     )
+market_order_data = MarketOrderRequest(
+                    symbol="SPY",
+                    qty=1,
+                    side=OrderSide.BUY,
+                    time_in_force=TimeInForce.DAY
+                    )
 
-# # Market order
-# market_order = trading_client.submit_order(
-#                 order_data=market_order_data
-#                )
+# Market order
+market_order = trading_client.submit_order(
+                order_data=market_order_data
+               )
 # params to filter orders by
 request_params = GetOrdersRequest(
                     status=QueryOrderStatus.OPEN,
