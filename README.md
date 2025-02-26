@@ -17,5 +17,5 @@ pip install -r requirements.txt
 
 Run the script
 ```bash
-python paper_trading.py
+python sp500.py
 ```

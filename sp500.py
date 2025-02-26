@@ -22,9 +22,6 @@ df = pd.read_csv('sp500_companies.csv')
 # Select a reduced set of columns
 reduced_df = df[['Symbol', 'Weight']][15:20]
 
-# Print the reduced DataFrame
-# print(reduced_df)
-
 for index, row in reduced_df.iterrows():
     # Error handling for invalid symbols or insufficient funds
     try:
