@@ -15,6 +15,8 @@ Install the requirements
 pip install -r requirements.txt
 ```
 
+Generate your Alpaca API key and place that in the config.py file like below. 
+
 Run the script
 ```bash
 python sp500.py
