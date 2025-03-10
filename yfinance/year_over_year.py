@@ -2,15 +2,16 @@ import yfinance as yf
 import pandas as pd
 from pull_tickers import extract_weights_from_csv, add_weights_to_ranked_list, extract_top_tickers_from_csv
 
-# dat = yf.Ticker("APPL")
-top_5_tickers = extract_top_tickers_from_csv('../sp500_companies.csv', top_n=250)
+# ---------------------------------------------------------------------------------------------------
+# Gather the tickers from the s&p500 csv file.
+# ---------------------------------------------------------------------------------------------------
+tickers = extract_top_tickers_from_csv('../sp500_companies.csv', top_n=2)
+start_date = "2023-01-01"
+end_date = "2024-01-02"
+interval = "3mo"
 
-# Use in yfinance
-df = yf.download(tickers=top_5_tickers, start="2023-01-01", end="2024-01-02", interval="3mo")
-
-#data.to_csv(path_or_buf="Apple_Google.csv")
-
-# df = pd.read_csv("Apple_Google.csv")
+# Use yahoo finance function to pull stock tickers
+df = yf.download(tickers=tickers, start=start_date, end=end_date, interval=interval)
 
 # First, let's get just the 'Open' price column
 open_prices = df['Open']
@@ -64,6 +65,9 @@ result_with_weights = add_weights_to_ranked_list(result, weights_dict)
 result_with_weights = result_with_weights.sort_values('Percent_Change')
 print(result_with_weights)
 result_with_weights.to_csv('output.csv')
+
+
+
 # Sort by percentage change to easily see which went down the most
 # result = result.sort_values('Percent_Change')
 # print(result)
