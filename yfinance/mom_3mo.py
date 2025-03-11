@@ -7,22 +7,25 @@ from datetime import datetime
 # Gather tickers from S&P 500 CSV
 # ---------------------------------------------------------------------------------------------------
 tickers = extract_top_tickers_from_csv('../sp500_companies.csv', top_n=250)  
-tickers_list = tickers.split()
+# tickers_list = tickers.split()
 start_date = "2023-01-01"
 end_date = "2024-01-02"
+
+portfolio_value = 1000000
+num_quarters = 5
 
 # ---------------------------------------------------------------------------------------------------
 # Download stock data (batch download)
 # ---------------------------------------------------------------------------------------------------
-print(f"Downloading data for tickers: {len(tickers_list)} tickers")
+print(f"Downloading data for tickers: {len(tickers)} tickers")
 # Use monthly interval instead of quarterly for more consistent data points
-raw_data = yf.download(tickers=tickers_list, start=start_date, end=end_date, interval="1mo", group_by='ticker')
+raw_data = yf.download(tickers=tickers, start=start_date, end=end_date, interval="1mo", group_by='ticker')
 print(raw_data)
 # ---------------------------------------------------------------------------------------------------
 # Identify failed tickers
 # ---------------------------------------------------------------------------------------------------
-failed_tickers = [ticker for ticker in tickers_list if ticker not in raw_data.columns.levels[0]]
-valid_tickers = [ticker for ticker in tickers_list if ticker in raw_data.columns.levels[0]]
+failed_tickers = [ticker for ticker in tickers if ticker not in raw_data.columns.levels[0]]
+valid_tickers = [ticker for ticker in tickers if ticker in raw_data.columns.levels[0]]
 
 # Print results
 if failed_tickers:
@@ -96,7 +99,7 @@ for ticker in valid_tickers:
         percent_change = round((change / prev_price) * 100, 2)
         
         row_data[f"Q{i}_Price"] = round(next_price, 2)
-        row_data[f"Percent_Change"] = percent_change
+        row_data[f"Q{i}_Percent_Change"] = percent_change
     
     performance_data.append(row_data)
 
@@ -107,6 +110,43 @@ performance_df = pd.DataFrame(performance_data)
 print(performance_df.head())
 
 weights_dict = extract_weights_from_csv('../sp500_companies.csv')
+result_with_weights = add_weights_to_ranked_list(performance_df, weights_dict)
+# result_with_weights = result_with_weights.sort_values('Percent_Change')
+
+# Save to CSV
+# result_with_weights.to_csv('performance_output.csv', index=False)
+
+# ---------------------------------------------------------------------------------------------------
+# Calculate negative quarters impact
+# ---------------------------------------------------------------------------------------------------
+
+# Go through each stock's data to calculate negative quarters impact
+for index, row in result_with_weights.iterrows():
+    ticker = row["Ticker"]
+    weight = row["Portfolio_Weight"]
+    weight = weights_dict.get(ticker, 0)  # Get weight from dictionary or default to 0
+    
+    # Initialize sum of negative quarters impact
+    negative_impact = 0
+    
+    # Check each quarter for negative returns
+    for i in range(1, num_quarters):  # Assuming max 7 quarters in your data
+        percent_change_key = f"Q{i}_Percent_Change"
+        
+        # If this quarter exists and had a negative return
+        if percent_change_key in row and pd.notna(row[percent_change_key]):
+            percent_change = row[percent_change_key]
+            
+            # Only add negative quarters
+            if percent_change < -10:
+                # Calculate impact: negative percent * weight * portfolio value / 10000
+                quarter_impact = (percent_change * weight * portfolio_value) / 100
+                negative_impact += quarter_impact
+    
+    # Add the total negative impact to the dataframe
+    performance_df.at[index, "Negative_Quarters_Impact"] = round(negative_impact, 2)
+
+# Add weights to the performance data
 result_with_weights = add_weights_to_ranked_list(performance_df, weights_dict)
 # result_with_weights = result_with_weights.sort_values('Percent_Change')
 

@@ -14,11 +14,11 @@ def extract_top_tickers_from_csv(csv_file, top_n=10):
     symbols = top_tickers['Symbol'].tolist()
     
     # Join symbols with a space for yfinance
-    tickers_string = " ".join(symbols)
+    # tickers_string = " ".join(symbols)
     
-    print(f"Selected top {len(symbols)} tickers by weight: {tickers_string}")
+    print(f"Selected top {len(symbols)} tickers by weight: {symbols}")
     
-    return tickers_string
+    return symbols
 
 # Read the CSV file to extract the symbols and weights
 # Assuming the CSV file is named 'portfolio.csv'
@@ -26,7 +26,7 @@ def extract_weights_from_csv(csv_file):
     # Read the CSV file
     csv_data = pd.read_csv(csv_file)
     
-    # Create a dictionary mapping Symbol to Weight
+    # Create a dictionary mapping Symbol to Weight with rounded values
     weights_dict = dict(zip(csv_data['Symbol'], csv_data['Weight']))
     
     return weights_dict
@@ -37,9 +37,9 @@ def add_weights_to_ranked_list(ranked_df, weights_dict):
     ranked_df['Portfolio_Weight'] = ranked_df['Ticker'].map(weights_dict)
     
     # Calculate the weighted impact on the portfolio
-    ranked_df['Weighted_Impact'] = ranked_df['Percent_Change'] * ranked_df['Portfolio_Weight']
+    # ranked_df['Weighted_Impact'] = ranked_df['Percent_Change'] * ranked_df['Portfolio_Weight']
     
     # Optional: Convert weights to percentage format for better readability
-    ranked_df['Portfolio_Weight'] = ranked_df['Portfolio_Weight'] * 100
+    ranked_df['Portfolio_Weight'] = round(ranked_df['Portfolio_Weight'] * 100, 2)
     
     return ranked_df
