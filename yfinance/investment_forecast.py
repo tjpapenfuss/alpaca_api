@@ -540,7 +540,7 @@ class InvestmentForecastingModel:
                 curr_total += deposit_amounts.pop(0)
                 deposit_dates.pop(0)
             cum_deposits.append(curr_total)
-        
+
         plt.plot(
             dates, 
             cum_deposits,
@@ -556,15 +556,18 @@ class InvestmentForecastingModel:
             
             # Download SPY data
             spy_data = yf.download(
-                'SPY',
+                tickers='SPY',
                 start=start_date.strftime('%Y-%m-%d'),
                 end=end_date.strftime('%Y-%m-%d'),
-                interval="1d"
+                interval="1d",
+                group_by='ticker'
             )
+
+            spy_close = spy_data.xs("Close", level=1, axis=1)
             
             if not spy_data.empty:
                 # Use Close prices instead of Adj Close
-                spy_close = spy_data['Close']
+                # spy_close = spy_data['Close']
                 
                 # Filter SPY data to match our portfolio dates
                 spy_values = []
@@ -580,7 +583,8 @@ class InvestmentForecastingModel:
                     closest_date = self._find_closest_date(date, spy_close.index)
                     if closest_date is not None:
                         # Make sure we get a scalar value
-                        spy_price = float(spy_close.loc[closest_date])
+                        spy_price = float(spy_close.loc[closest_date, 'SPY'])
+                        print(spy_price)
                         
                         if first_spy_price is None:
                             first_spy_price = spy_price
@@ -604,7 +608,8 @@ class InvestmentForecastingModel:
                     else:
                         # If no spy data for this date, use previous value
                         spy_values.append(spy_values[-1] if spy_values else first_deposit_amount)
-                
+                print(spy_values)
+                print("SPY VALUES")
                 plt.plot(
                     dates,
                     spy_values,
@@ -730,7 +735,7 @@ if __name__ == "__main__":
     # Configuration for simulation
     config = {
         'initial_investment': 100000,        # Initial lump-sum investment
-        'recurring_investment': 5000,        # Amount to invest at regular intervals
+        'recurring_investment': 1500,        # Amount to invest at regular intervals
         'investment_frequency': 'monthly',   # 'monthly' or 'bimonthly'
         'start_date': '2024-01-01',          # Start date for simulation
         'end_date': '2025-03-11',            # End date for simulation
