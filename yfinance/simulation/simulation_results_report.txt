@@ -1,0 +1,65 @@
+Investment Simulation Report
+==============================
+Simulation Period: 2024-01-01 to 2025-03-11
+Initial Investment: $100,000.00
+Recurring Investment: $5,000.00 (monthly)
+Sell Trigger: -10%
+Number of Tickers: 10
+==============================
+Performance Summary:
+Total Deposits: $170,000.00
+Final Portfolio Value: $212,579.11
+Total Return: $42,579.11 (25.05%)
+Annualized Return: 20.75%
+Realized Losses: $-5,056.35
+Estimated Tax Savings: $1,516.90
+Number of Transactions: 180
+
+Tax-Loss Harvesting Summary
+==============================
+TSLA: 7 sales
+  Total Proceeds: $10,140.58
+  Total Losses: $-2,963.71
+  Average Loss: -29.23%
+
+META: 4 sales
+  Total Proceeds: $3,267.93
+  Total Losses: $-416.77
+  Average Loss: -12.75%
+
+AVGO: 4 sales
+  Total Proceeds: $1,883.28
+  Total Losses: $-286.04
+  Average Loss: -15.19%
+
+NVDA: 5 sales
+  Total Proceeds: $3,589.29
+  Total Losses: $-555.84
+  Average Loss: -15.49%
+
+MSFT: 2 sales
+  Total Proceeds: $787.96
+  Total Losses: $-96.24
+  Average Loss: -12.21%
+
+AMZN: 3 sales
+  Total Proceeds: $1,554.67
+  Total Losses: $-190.41
+  Average Loss: -12.25%
+
+GOOGL: 3 sales
+  Total Proceeds: $1,660.96
+  Total Losses: $-268.80
+  Average Loss: -16.18%
+
+GOOG: 3 sales
+  Total Proceeds: $1,665.65
+  Total Losses: $-278.54
+  Average Loss: -16.72%
+
+==============================
+Overall Summary:
+Total Sales: 31
+Total Proceeds: $24,550.32
+Total Losses: $-5,056.35
+Estimated Tax Savings (30% rate): $1,516.90
