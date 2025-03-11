@@ -13,8 +13,8 @@ trigger_threshold = -10  # Sell trigger when rolling performance drops below thi
 # Gather tickers from S&P 500 CSV
 # ---------------------------------------------------------------------------------------------------
 tickers = extract_top_tickers_from_csv('../sp500_companies.csv', top_n=250)  
-start_date = "2023-01-01"
-end_date = "2024-01-02"
+start_date = "2025-01-01"
+end_date = "2025-04-02"
 
 # ---------------------------------------------------------------------------------------------------
 # Download stock data (batch download)

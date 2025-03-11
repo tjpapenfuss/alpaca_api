@@ -5,9 +5,9 @@ from pull_tickers import extract_weights_from_csv, add_weights_to_ranked_list, e
 # ---------------------------------------------------------------------------------------------------
 # Gather the tickers from the s&p500 csv file.
 # ---------------------------------------------------------------------------------------------------
-tickers = extract_top_tickers_from_csv('../sp500_companies.csv', top_n=2)
-start_date = "2023-01-01"
-end_date = "2024-01-02"
+tickers = extract_top_tickers_from_csv('../sp500_companies.csv', top_n=250)
+start_date = "2024-01-01"
+end_date = "2025-01-02"
 interval = "3mo"
 
 # Use yahoo finance function to pull stock tickers
