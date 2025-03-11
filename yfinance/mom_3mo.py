@@ -1,22 +1,23 @@
 import pandas as pd
 import yfinance as yf
-from pull_tickers import extract_top_tickers_from_csv
+from pull_tickers import extract_weights_from_csv, add_weights_to_ranked_list, extract_top_tickers_from_csv
+from datetime import datetime
 
 # ---------------------------------------------------------------------------------------------------
 # Gather tickers from S&P 500 CSV
 # ---------------------------------------------------------------------------------------------------
 tickers = extract_top_tickers_from_csv('../sp500_companies.csv', top_n=250)  
-tickers_list = tickers.split()  # Convert "AAPL NVDA BRK.B GEV" → ["AAPL", "NVDA", "BRK.B", "GEV"]
+tickers_list = tickers.split()
 start_date = "2023-01-01"
 end_date = "2024-01-02"
-interval = "3mo"
 
 # ---------------------------------------------------------------------------------------------------
-# Download stock data (only once)
+# Download stock data (batch download)
 # ---------------------------------------------------------------------------------------------------
-print(f"Downloading data for tickers: {tickers_list}")
-raw_data = yf.download(tickers=tickers_list, start=start_date, end=end_date, interval=interval, group_by='ticker')
-
+print(f"Downloading data for tickers: {len(tickers_list)} tickers")
+# Use monthly interval instead of quarterly for more consistent data points
+raw_data = yf.download(tickers=tickers_list, start=start_date, end=end_date, interval="1mo", group_by='ticker')
+print(raw_data)
 # ---------------------------------------------------------------------------------------------------
 # Identify failed tickers
 # ---------------------------------------------------------------------------------------------------
@@ -25,8 +26,8 @@ valid_tickers = [ticker for ticker in tickers_list if ticker in raw_data.columns
 
 # Print results
 if failed_tickers:
-    print(f"\n❌ Failed to download: {failed_tickers}\n")
-print(f"✅ Processed valid tickers: {valid_tickers}\n")
+    print(f"\n❌ Failed to download: {len(failed_tickers)} tickers")
+print(f"✅ Processed valid tickers: {len(valid_tickers)} tickers\n")
 
 # ---------------------------------------------------------------------------------------------------
 # Extract Open Prices (Only for Valid Tickers)
@@ -36,17 +37,30 @@ if "Open" in raw_data.columns.levels[1]:
 else:
     print("Error: 'Open' column missing in data. Exiting.")
     exit()
+print(open_prices)
+# ---------------------------------------------------------------------------------------------------
+# Filter for quarterly data (Jan, Apr, Jul, Oct)
+# ---------------------------------------------------------------------------------------------------
+quarterly_months = [1, 4, 7, 10]  # Jan, Apr, Jul, Oct for quarterly data
+quarterly_data = open_prices[open_prices.index.month.isin(quarterly_months)].copy()
 
 # ---------------------------------------------------------------------------------------------------
-# Prepare DataFrame with Stock Data
+# Prepare DataFrame with Quarterly Stock Data
 # ---------------------------------------------------------------------------------------------------
 result_df = pd.DataFrame()
 
 for ticker in valid_tickers:
+    ticker_data = quarterly_data[ticker].dropna()  # Drop NaN values for this ticker
+    
+    # Skip tickers with insufficient data
+    if len(ticker_data) < 2:
+        print(f"Skipping {ticker}: insufficient quarterly data points")
+        continue
+        
     temp_df = pd.DataFrame({
-        'Date': open_prices.index,
+        'Date': ticker_data.index,
         'Ticker': ticker,
-        'Open': open_prices[ticker].values.round(2)  # Round to 2 decimals
+        'Open': ticker_data.values.round(2)  # Round to 2 decimals
     })
     result_df = pd.concat([result_df, temp_df])
 
@@ -54,39 +68,47 @@ for ticker in valid_tickers:
 result_df = result_df.sort_values(['Ticker', 'Date']).reset_index(drop=True)
 
 # ---------------------------------------------------------------------------------------------------
-# Calculate month-over-month changes dynamically
+# Calculate quarter-over-quarter changes
 # ---------------------------------------------------------------------------------------------------
 performance_data = []
 
-for ticker in valid_tickers:  # Process only valid tickers
+for ticker in valid_tickers:
+    # Get data for this ticker
     ticker_data = result_df[result_df['Ticker'] == ticker].sort_values('Date').reset_index(drop=True)
-
+    
+    # Skip tickers with insufficient data
+    if len(ticker_data) < 2:
+        continue
+        
     row_data = {
         "Ticker": ticker,
-        "Start_Date": ticker_data.loc[0, "Date"],
-        "Start_Price": round(ticker_data.loc[0, "Open"], 2)
+        "Start_Date": ticker_data.loc[0, "Date"].strftime('%Y-%m-%d'),
+        "Q1_Price": round(ticker_data.loc[0, "Open"], 2)
     }
     
-    for i in range(1, len(ticker_data)):  # Iterate over time periods
-        prev_date = ticker_data.loc[i - 1, "Date"]
-        prev_price = ticker_data.loc[i - 1, "Open"]
-        next_date = ticker_data.loc[i, "Date"]
+    # Process only the available data points
+    for i in range(1, len(ticker_data)):
+        prev_price = ticker_data.loc[i-1, "Open"]
         next_price = ticker_data.loc[i, "Open"]
+        
+        # Calculate changes
         change = round(next_price - prev_price, 2)
-        percent_change = round((change / prev_price) * 100, 2) if prev_price else None
-
-        row_data[f"Next_Date_{i}"] = next_date
-        row_data[f"Next_Price_{i}"] = round(next_price, 2)
-        row_data[f"Change_{i}"] = change
-        row_data[f"Percent_Change_{i}"] = percent_change
-
+        percent_change = round((change / prev_price) * 100, 2)
+        
+        row_data[f"Q{i}_Price"] = round(next_price, 2)
+        row_data[f"Percent_Change"] = percent_change
+    
     performance_data.append(row_data)
 
 # Convert results to DataFrame
 performance_df = pd.DataFrame(performance_data)
 
 # Display result
-print(performance_df)
+print(performance_df.head())
+
+weights_dict = extract_weights_from_csv('../sp500_companies.csv')
+result_with_weights = add_weights_to_ranked_list(performance_df, weights_dict)
+# result_with_weights = result_with_weights.sort_values('Percent_Change')
 
 # Save to CSV
-performance_df.to_csv('performance_output.csv', index=False)
+result_with_weights.to_csv('performance_output.csv', index=False)
