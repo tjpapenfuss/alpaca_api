@@ -1,0 +1,75 @@
+Investment Simulation Report
+==============================
+Simulation Period: 2020-01-01 to 2025-03-11
+Initial Investment: $100,000.00
+Recurring Investment: $1,500.00 (monthly)
+Sell Trigger: -10%
+Number of Tickers: 10
+==============================
+Performance Summary:
+Total Deposits: $193,000.00
+Final Portfolio Value: $665,040.73
+Total Return: $472,040.73 (244.58%)
+Annualized Return: 26.94%
+Realized Losses: $-27,319.37
+Estimated Tax Savings: $8,195.81
+Number of Transactions: 632
+
+Tax-Loss Harvesting Summary
+==============================
+AVGO: 10 sales
+  Total Proceeds: $6,228.01
+  Total Losses: $-950.19
+  Average Loss: -15.26%
+
+AAPL: 21 sales
+  Total Proceeds: $23,680.36
+  Total Losses: $-5,139.80
+  Average Loss: -21.70%
+
+NVDA: 24 sales
+  Total Proceeds: $8,545.96
+  Total Losses: $-1,587.05
+  Average Loss: -18.57%
+
+MSFT: 14 sales
+  Total Proceeds: $6,859.57
+  Total Losses: $-1,191.79
+  Average Loss: -17.37%
+
+GOOGL: 26 sales
+  Total Proceeds: $14,438.59
+  Total Losses: $-3,150.82
+  Average Loss: -21.82%
+
+GOOG: 26 sales
+  Total Proceeds: $14,410.83
+  Total Losses: $-3,082.02
+  Average Loss: -21.39%
+
+META: 7 sales
+  Total Proceeds: $10,346.74
+  Total Losses: $-2,569.60
+  Average Loss: -24.83%
+
+TSLA: 9 sales
+  Total Proceeds: $13,337.61
+  Total Losses: $-2,409.80
+  Average Loss: -18.07%
+
+BRK-B: 4 sales
+  Total Proceeds: $4,906.50
+  Total Losses: $-1,229.53
+  Average Loss: -25.06%
+
+AMZN: 33 sales
+  Total Proceeds: $47,966.73
+  Total Losses: $-6,008.76
+  Average Loss: -12.53%
+
+==============================
+Overall Summary:
+Total Sales: 174
+Total Proceeds: $150,720.90
+Total Losses: $-27,319.37
+Estimated Tax Savings (30% rate): $8,195.81

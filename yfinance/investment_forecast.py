@@ -292,11 +292,10 @@ class InvestmentForecastingModel:
                 if ticker in adjusted_weights:
                     adjusted_weights.pop(ticker)
                     
-            # Normalize remaining weights to sum to 1
-            if adjusted_weights:  # Check if any weights remain
-                weight_sum = sum(adjusted_weights.values())
-                if weight_sum > 0:  # Avoid division by zero
-                    adjusted_weights = {k: v/weight_sum for k, v in adjusted_weights.items()}
+        # Normalize remaining weights to sum to 1
+        weight_sum = sum(adjusted_weights.values())
+        if weight_sum > 0:  # Avoid division by zero
+            adjusted_weights = {k: v/weight_sum for k, v in adjusted_weights.items()}
         
         # Calculate amount to invest in each ticker
         for ticker, weight in adjusted_weights.items():
@@ -536,7 +535,9 @@ class InvestmentForecastingModel:
         curr_total = 0
         
         for date in dates:
-            while deposit_dates and deposit_dates[0] <= date:
+                # Taking this out for now...only doing monthly contributions.
+            # while deposit_dates and deposit_dates[0] <= date:
+            if(deposit_amounts and deposit_dates):
                 curr_total += deposit_amounts.pop(0)
                 deposit_dates.pop(0)
             cum_deposits.append(curr_total)
@@ -577,7 +578,7 @@ class InvestmentForecastingModel:
                 cum_deposits_copy = cum_deposits.copy()
                 
                 # Normalize SPY to match initial investment
-                first_spy_price = None
+                prev_spy_price = None
                 for i, date in enumerate(dates):
                     # Find closest date in SPY data
                     closest_date = self._find_closest_date(date, spy_close.index)
@@ -586,14 +587,13 @@ class InvestmentForecastingModel:
                         spy_price = float(spy_close.loc[closest_date, 'SPY'])
                         print(spy_price)
                         
-                        if first_spy_price is None:
-                            first_spy_price = spy_price
+                        if prev_spy_price is None:
+                            prev_spy_price = spy_price
                             spy_values.append(first_deposit_amount)
                         else:
-                            # Calculate value of initial investment if it had been invested in SPY
-                            spy_return = spy_price / first_spy_price
-                            base_spy_value = first_deposit_amount * spy_return
-                            
+                            # Calculate value of initial investment if it had been invested in SPY over the past period
+                            spy_return = spy_price / prev_spy_price
+
                             # Add recurring investments with a more straightforward approach
                             current_deposit = cum_deposits_copy[i]
                             previous_deposit = first_deposit_amount if i == 0 else cum_deposits_copy[i-1]
@@ -601,10 +601,12 @@ class InvestmentForecastingModel:
                             
                             if i > 0 and new_investment > 0:
                                 # For new money, we start fresh (no returns yet)
-                                spy_values.append(spy_values[-1] * spy_price / spy_close.loc[self._find_closest_date(dates[i-1], spy_close.index)] + new_investment)
+                                spy_values.append(spy_values[-1] * spy_return + new_investment)
                             else:
-                                # Just the return on existing investment
-                                spy_values.append(base_spy_value)
+                                # Just the return on existing investment with the return over the period.
+                                spy_values.append(spy_values[-1] * spy_return)
+                            
+                            prev_spy_price = spy_price
                     else:
                         # If no spy data for this date, use previous value
                         spy_values.append(spy_values[-1] if spy_values else first_deposit_amount)
@@ -730,19 +732,20 @@ class InvestmentForecastingModel:
         print(f"Results exported to {base_filename}_*.csv/txt files")
 
 
-# Example usage:
+
 if __name__ == "__main__":
     # Configuration for simulation
+    allocation_weights = extract_weights_from_csv('c:/Users/tjpap/sandbox/alpaca_api/sp500_companies.csv')
     config = {
         'initial_investment': 100000,        # Initial lump-sum investment
         'recurring_investment': 1500,        # Amount to invest at regular intervals
         'investment_frequency': 'monthly',   # 'monthly' or 'bimonthly'
-        'start_date': '2024-01-01',          # Start date for simulation
+        'start_date': '2020-01-01',          # Start date for simulation
         'end_date': '2025-03-11',            # End date for simulation
-        'tickers_source': '../sp500_companies.csv',  # Path to CSV with tickers
-        'top_n': 10,                        # Number of top tickers to use
+        'tickers_source': 'c:/Users/tjpap/sandbox/alpaca_api/sp500_companies.csv',  # Path to CSV with tickers
+        'top_n': 250,                        # Number of top tickers to use
         'sell_trigger': -10,                 # Percentage decline to trigger a sell
-        'portfolio_allocation': 'equal'      # Equal weight allocation
+        'portfolio_allocation': allocation_weights      # Equal weight allocation
     }
     
     # Initialize and run model
