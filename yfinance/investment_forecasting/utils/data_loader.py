@@ -1,26 +1,12 @@
-import pandas as pd
 import yfinance as yf
+from ..utils.date_utils import get_closest_trading_day
+import pandas as pd
 from datetime import datetime, timedelta
 
 def download_stock_data(tickers, start_date, end_date):
     """
     Download daily stock price data for the specified tickers and date range.
-    
-    Parameters:
-    -----------
-    tickers : list
-        List of ticker symbols
-    start_date : str
-        Start date in 'YYYY-MM-DD' format
-    end_date : str
-        End date in 'YYYY-MM-DD' format
-    
-    Returns:
-    --------
-    tuple
-        (stock_data, valid_tickers, failed_tickers)
     """
-    print(f"Downloading data for {len(tickers)} tickers...")
     
     # Add buffer days before start date to calculate returns properly
     start_buffer = datetime.strptime(start_date, '%Y-%m-%d') - timedelta(days=5)
@@ -42,134 +28,60 @@ def download_stock_data(tickers, start_date, end_date):
             print(f"Failed to download data for {len(failed_tickers)} tickers.")
         
         print(f"Successfully downloaded data for {len(valid_tickers)} tickers.")
+        tickers = valid_tickers
         
-        return stock_data, valid_tickers, failed_tickers
+        # Took out returning failed tickers. Can put this back in if necessary
+        return valid_tickers, stock_data
         
     except Exception as e:
         print(f"Error downloading stock data: {e}")
-        return None, [], tickers
+        return None, tickers
+    
+def extract_tickers_from_source(source, top_n=250):
+    """
+    Extract ticker symbols from a source (CSV file or list).
+    """
+    # Implementation...
 
-def load_tickers_and_weights(config):
-    """
-    Load tickers and calculate allocation weights based on configuration.
+def extract_top_tickers_from_csv(csv_file, top_n=10):
+    # Read the CSV file
+    csv_data = pd.read_csv(csv_file)
     
-    Parameters:
-    -----------
-    config : dict
-        Configuration dictionary
+    # Sort by Weight column in descending order
+    sorted_data = csv_data.sort_values('Weight', ascending=False)
     
-    Returns:
-    --------
-    tuple
-        (tickers, allocation_weights)
-    """
-    tickers_source = config.get('tickers_source', '')
+    # Take only the top n tickers
+    top_tickers = sorted_data.head(top_n)
     
-    # Load tickers from CSV or use provided list
-    if isinstance(tickers_source, str) and tickers_source.endswith('.csv'):
-        tickers = extract_top_tickers_from_csv(
-            tickers_source, 
-            top_n=config.get('top_n', 250)
-        )
-    else:
-        tickers = config.get('tickers_source', [])
+    # Extract the symbols
+    symbols = top_tickers['Symbol'].tolist()
     
-    # Calculate allocation weights
-    portfolio_allocation = config.get('portfolio_allocation', 'equal')
+    # Join symbols with a space for yfinance
+    # tickers_string = " ".join(symbols)
     
-    if portfolio_allocation == 'equal':
-        # Equal weight allocation
-        weight = 1.0 / len(tickers)
-        allocation_weights = {ticker: weight for ticker in tickers}
-    elif isinstance(portfolio_allocation, dict):
-        # User-provided weights
-        # Normalize to ensure weights sum to 1
-        total_weight = sum(portfolio_allocation.values())
-        allocation_weights = {t: w/total_weight for t, w in portfolio_allocation.items() if t in tickers}
-    elif isinstance(portfolio_allocation, str) and portfolio_allocation.endswith('.csv'):
-        # Load weights from CSV
-        try:
-            weights_dict = extract_weights_from_csv(portfolio_allocation)
-            # Filter for only our tickers and normalize
-            filtered_weights = {t: weights_dict.get(t, 0) for t in tickers}
-            total_weight = sum(filtered_weights.values())
-            if total_weight > 0:
-                allocation_weights = {t: w/total_weight for t, w in filtered_weights.items()}
-            else:
-                # Fall back to equal weight if no weights found
-                weight = 1.0 / len(tickers)
-                allocation_weights = {ticker: weight for ticker in tickers}
-        except Exception as e:
-            print(f"Error loading weights from CSV: {e}")
-            # Fall back to equal weight
-            weight = 1.0 / len(tickers)
-            allocation_weights = {ticker: weight for ticker in tickers}
-    else:
-        # Default to equal weight
-        weight = 1.0 / len(tickers)
-        allocation_weights = {ticker: weight for ticker in tickers}
+    print(f"Selected top {len(symbols)} tickers by weight: {symbols}")
     
-    return tickers, allocation_weights
+    return symbols
 
-def extract_top_tickers_from_csv(csv_path, top_n=250):
-    """
-    Extract top N tickers from a CSV file.
+# Read the CSV file to extract the symbols and weights
+def extract_weights_from_csv(csv_file):
+    # Read the CSV file
+    csv_data = pd.read_csv(csv_file)
     
-    Parameters:
-    -----------
-    csv_path : str
-        Path to CSV file
-    top_n : int
-        Number of top tickers to extract
+    # Create a dictionary mapping Symbol to Weight with rounded values
+    weights_dict = dict(zip(csv_data['Symbol'], csv_data['Weight']))
     
-    Returns:
-    --------
-    list
-        List of ticker symbols
-    """
-    try:
-        df = pd.read_csv(csv_path)
-        # Assume the CSV has a column named 'Symbol' or 'Ticker'
-        ticker_col = 'Symbol' if 'Symbol' in df.columns else 'Ticker'
-        
-        if ticker_col not in df.columns:
-            raise ValueError(f"CSV does not contain a '{ticker_col}' column")
-            
-        # Take top N tickers
-        tickers = df[ticker_col].head(top_n).tolist()
-        return tickers
-    except Exception as e:
-        print(f"Error extracting tickers from CSV: {e}")
-        return []
+    return weights_dict
 
-def extract_weights_from_csv(csv_path):
-    """
-    Extract ticker weights from a CSV file.
+# # Add weights to your existing ranked DataFrame
+# def add_weights_to_ranked_list(ranked_df, weights_dict):
+#     # Create a new column for the weights
+#     ranked_df['Portfolio_Weight'] = ranked_df['Ticker'].map(weights_dict)
     
-    Parameters:
-    -----------
-    csv_path : str
-        Path to CSV file
+#     # Calculate the weighted impact on the portfolio
+#     # ranked_df['Weighted_Impact'] = ranked_df['Percent_Change'] * ranked_df['Portfolio_Weight']
     
-    Returns:
-    --------
-    dict
-        Dictionary mapping tickers to weights
-    """
-    try:
-        df = pd.read_csv(csv_path)
-        # Assume the CSV has columns named 'Symbol'/'Ticker' and 'Weight'
-        ticker_col = 'Symbol' if 'Symbol' in df.columns else 'Ticker'
-        weight_col = 'Weight' if 'Weight' in df.columns else 'weight'
-        
-        if ticker_col not in df.columns:
-            raise ValueError(f"CSV does not contain a '{ticker_col}' column")
-        if weight_col not in df.columns:
-            raise ValueError(f"CSV does not contain a '{weight_col}' column")
-            
-        # Create dictionary of ticker to weight
-        weights = dict(zip(df[ticker_col], df[weight_col]))
-        return weights
-    except Exception as e:
-        print(f"Error extracting weights from CSV: {e}")
-        return {}
+#     # Optional: Convert weights to percentage format for better readability
+#     ranked_df['Portfolio_Weight'] = round(ranked_df['Portfolio_Weight'] * 100, 2)
+    
+#     return ranked_df

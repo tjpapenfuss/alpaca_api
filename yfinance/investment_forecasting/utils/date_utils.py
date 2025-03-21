@@ -1,63 +1,35 @@
-from datetime import datetime, timedelta
+#from datetime import datetime, timedelta
 from dateutil.relativedelta import relativedelta
 import pandas as pd
 
 def generate_investment_dates(start_date, end_date, frequency='monthly'):
     """
     Generate dates for recurring investments based on frequency.
-    
-    Parameters:
-    -----------
-    start_date : str
-        Start date in 'YYYY-MM-DD' format
-    end_date : str
-        End date in 'YYYY-MM-DD' format
-    frequency : str
-        'monthly' or 'bimonthly'
-    
-    Returns:
-    --------
-    list
-        List of date strings
-    """
-    start = datetime.strptime(start_date, '%Y-%m-%d')
-    end = datetime.strptime(end_date, '%Y-%m-%d')
-    
-    dates = [start]  # Start with initial investment date
-    current = start
+    """    
+    dates = [start_date]  # Start with initial investment date
+    current = start_date
     
     # Generate recurring investment dates
-    while current < end:
+    while current < end_date:
         if frequency == 'monthly':
             current = current + relativedelta(months=1)
         elif frequency == 'bimonthly':
-            current = current + relativedelta(months=2)
+            current = current + relativedelta(months=0.5)
         else:
             raise ValueError("Investment frequency must be 'monthly' or 'bimonthly'")
         
-        if current <= end:
+        if current <= end_date:
             dates.append(current)
             
-    return [d.strftime('%Y-%m-%d') for d in dates]
-
+    investment_dates = [d.strftime('%Y-%m-%d') for d in dates]
+    return investment_dates
+    
 def get_closest_trading_day(date_str, prices_df):
     """
     Find the closest trading day to the given date.
-    
-    Parameters:
-    -----------
-    date_str : str
-        Date in 'YYYY-MM-DD' format
-    prices_df : DataFrame
-        DataFrame with dates as index
-    
-    Returns:
-    --------
-    str
-        Closest trading day in 'YYYY-MM-DD' format or None if not found
     """
     target_date = pd.to_datetime(date_str)
-    
+        
     # Try exact date first
     if target_date in prices_df.index:
         return date_str
@@ -73,39 +45,5 @@ def get_closest_trading_day(date_str, prices_df):
         backward_date = target_date - pd.Timedelta(days=i)
         if backward_date in prices_df.index:
             return backward_date.strftime('%Y-%m-%d')
-            
-    return None
-
-def find_closest_date(target_date, date_index):
-    """
-    Find the closest date in the index to the target date.
-    
-    Parameters:
-    -----------
-    target_date : datetime
-        Target date
-    date_index : DatetimeIndex
-        Index of dates to search
-    
-    Returns:
-    --------
-    datetime
-        Closest date or None if not found
-    """
-    # Try exact date first
-    if target_date in date_index:
-        return target_date
-        
-    # Look for closest date within 5 days
-    for i in range(1, 6):
-        # Try dates after
-        forward_date = target_date + pd.Timedelta(days=i)
-        if forward_date in date_index:
-            return forward_date
-            
-        # Try dates before
-        backward_date = target_date - pd.Timedelta(days=i)
-        if backward_date in date_index:
-            return backward_date
             
     return None

@@ -50,13 +50,13 @@ class Portfolio:
         """
         if excluded_tickers is None:
             excluded_tickers = []
-                
+    
         date_prices = prices.loc[date]
         available_cash = self.cash
         
         # Skip if no available cash
         if available_cash <= 0:
-            return
+            return transactions
                 
         # Adjust allocation weights to exclude tickers that were just sold
         adjusted_weights = allocation_weights.copy()
@@ -88,7 +88,48 @@ class Portfolio:
             
             # Only buy if at least 0.01 shares
             if shares_to_buy >= 0.01:
-                self.buy_position(ticker, shares_to_buy, price, date, transactions, "Regular purchase")
+                # Initialize holdings for this ticker if it doesn't exist
+                if ticker not in self.holdings:
+                    self.holdings[ticker] = {
+                        'shares': 0,
+                        'investments': [],
+                        'cost_basis': 0
+                    }
+                
+                # Update portfolio
+                self.holdings[ticker]['shares'] += shares_to_buy
+                
+                # Track this specific investment separately for tax-loss harvesting
+                purchase_record = {
+                    'date': date,
+                    'shares': shares_to_buy,
+                    'price': price,
+                    'cost': actual_investment,
+                    'current_value': actual_investment,
+                    'return_pct': 0,
+                    'days_held': 0,
+                    'sold': False
+                }
+                self.holdings[ticker]['investments'].append(purchase_record)
+                    
+                # Update average cost basis
+                total_shares = self.holdings[ticker]['shares']
+                current_basis = self.holdings[ticker]['cost_basis']
+                new_basis = (current_basis * (total_shares - shares_to_buy) + actual_investment) / total_shares
+                self.holdings[ticker]['cost_basis'] = new_basis
+                    
+                # Update cash and record transaction
+                self.cash -= actual_investment
+                transactions.append({
+                    'date': date,
+                    'type': 'buy',
+                    'ticker': ticker,
+                    'shares': shares_to_buy,
+                    'price': price,
+                    'amount': actual_investment,
+                    'description': f'Bought {shares_to_buy} shares of {ticker}'
+                })
+        return transactions
     
     def buy_position(self, ticker, shares_to_buy, price, date, transactions, description):
         """
