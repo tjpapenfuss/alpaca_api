@@ -17,11 +17,11 @@ class Portfolio:
         self.rebalance_threshold = rebalance_threshold
         self.portfolio_allocation = portfolio_allocation
         self.last_rebalance_date = None
-        self.holdings = None
+        self.holdings = {}
         self.tickers = tickers
         self.portfolio_history = []
         
-    def initialize_tickers(self, tickers):
+    def initialize_holdings(self, tickers):
         self.holdings = {ticker: {'shares': 0, 'cost_basis': 0, 'investments': []} 
                          for ticker in tickers}
 
@@ -534,13 +534,11 @@ class Portfolio:
                 
                 # Update days held correctly - calculate the actual days passed
                 investment['days_held'] = (current_date - purchase_date).days
-                
                 # Don't need prev value just the investment cost
                 # previous_value = investment['current_value'] 
                 current_value = investment['shares'] * current_price
                 investment['current_value'] = current_value
                 investment['return_pct'] = ((current_value / investment['cost']) - 1) * 100
-                
                 # Check if this specific investment meets the sell trigger
                 if investment['return_pct'] <= sell_trigger:
                     # Sell this specific lot
@@ -553,7 +551,6 @@ class Portfolio:
                     
                     # Calculate loss for reporting
                     realized_loss = sale_proceeds - investment['cost']
-                    
                     # Record transaction
                     transactions.append({
                         'date': date,
@@ -567,7 +564,6 @@ class Portfolio:
                         'days_held': investment['days_held'],
                         'description': f'Sold {investment["shares"]} shares of {ticker} for tax-loss harvesting'
                     })
-                    
                     ticker_sold = True
             
             if ticker_sold:

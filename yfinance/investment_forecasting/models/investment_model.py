@@ -84,8 +84,7 @@ class InvestmentForecastingModel:
             prices = self.stock_data.xs("Close", level=1, axis=1)
         
         # Initialize portfolio tracking
-        self.portfolio.initialize_tickers(valid_tickers)
-        portfolio_history = []
+        self.portfolio.initialize_holdings(valid_tickers)
         transactions = []
         
         # Make initial investment
@@ -169,12 +168,12 @@ class InvestmentForecastingModel:
         }
         
     def calculate_performance_metrics(self):
-        """Calculate performance metrics for the simulation."""
-        if len(self.portfolio_history) == 0:
+        """Calculate performance metrics for the simulation."""    
+        history = self.portfolio.get_portfolio_history()
+
+        if len(history) == 0:
             self.performance_metrics = {}
             return
-            
-        history = self.portfolio.get_portfolio_history()
         
         # Calculate total deposits
         deposits = sum(t['amount'] for t in self.transactions if t['type'] == 'deposit')

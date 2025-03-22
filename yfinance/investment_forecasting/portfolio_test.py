@@ -1,0 +1,530 @@
+import unittest
+import pandas as pd
+import numpy as np
+from models.portfolio import Portfolio
+import yfinance as yf
+import unittest
+
+class TestPortfolio(unittest.TestCase):
+    def setUp(self):
+        """Set up test fixtures before each test method."""
+        # Create a test portfolio with some tickers
+        self.tickers = ['AAPL', 'MSFT', 'GOOGL']
+        self.portfolio = Portfolio(
+            rebalance_frequency='monthly',
+            rebalance_threshold=5.0,  # 5% threshold for rebalancing
+            portfolio_allocation='equal',
+            tickers=self.tickers
+        )
+        
+        # Initialize holdings
+        self.portfolio.initialize_holdings(self.tickers)
+        
+        # Add initial cash
+        self.portfolio.add_cash(10000)
+        
+        # Create a test price dataframe
+        dates = pd.date_range(start='2023-01-01', end='2023-03-31', freq='D')
+        self.prices_df = pd.DataFrame(index=dates)
+        
+        # Generate some test price data
+        for ticker in self.tickers:
+            # Start with a base price and add some randomness
+            base_price = 100 + np.random.randint(0, 50)
+            # Generate prices with some day-to-day variation
+            prices = [base_price + np.random.normal(0, 2) for _ in range(len(dates))]
+            self.prices_df[ticker] = prices
+            
+        # Ensure all dates are datetime
+        self.prices_df.index = pd.to_datetime(self.prices_df.index)
+        # Create empty transactions list
+        self.transactions = []
+
+    def test_add_cash(self):
+        """Test adding cash to the portfolio."""
+        initial_cash = self.portfolio.cash
+        added_amount = 5000
+        new_cash = self.portfolio.add_cash(added_amount)
+        
+        self.assertEqual(new_cash, initial_cash + added_amount)
+        self.assertEqual(self.portfolio.cash, initial_cash + added_amount)
+
+    def test_calculate_total_value(self):
+        """Test calculating the total portfolio value."""
+        # Add some holdings first
+        date = self.prices_df.index[0]
+        price = self.prices_df.loc[date, 'AAPL']
+        
+        # Buy some shares
+        self.portfolio.buy_position(
+            'AAPL', 10, price, date, self.transactions, "Test purchase"
+        )
+        
+        # Calculate expected value
+        expected_value = self.portfolio.cash + (10 * price)
+        actual_value = self.portfolio.calculate_total_value(self.prices_df, date)
+        
+        self.assertAlmostEqual(actual_value, expected_value, places=2)
+
+    def test_calculate_allocation_weights_equal(self):
+        """Test calculating equal allocation weights."""
+        weights = self.portfolio.calculate_allocation_weights()
+        expected_weight = 1.0 / len(self.tickers)
+        
+        for ticker in self.tickers:
+            self.assertAlmostEqual(weights[ticker], expected_weight, places=4)
+            
+    def test_calculate_allocation_weights_custom(self):
+        """Test calculating custom allocation weights."""
+        # Set custom allocation
+        custom_allocation = {'AAPL': 0.5, 'MSFT': 0.3, 'GOOGL': 0.2}
+        self.portfolio.portfolio_allocation = custom_allocation
+        
+        weights = self.portfolio.calculate_allocation_weights()
+        
+        for ticker in self.tickers:
+            self.assertAlmostEqual(weights[ticker], custom_allocation[ticker], places=4)
+
+    def test_buy_position(self):
+        """Test buying a position."""
+        date = self.prices_df.index[0]
+        price = self.prices_df.loc[date, 'AAPL']
+        shares = 10
+        initial_cash = self.portfolio.cash
+        
+        self.portfolio.buy_position(
+            'AAPL', shares, price, date, self.transactions, "Test purchase"
+        )
+        
+        # Check if shares were added
+        self.assertEqual(self.portfolio.holdings['AAPL']['shares'], shares)
+        
+        # Check if cost basis was calculated correctly
+        self.assertAlmostEqual(self.portfolio.holdings['AAPL']['cost_basis'], price, places=2)
+        
+        # Check if cash was reduced
+        self.assertAlmostEqual(self.portfolio.cash, initial_cash - (shares * price), places=2)
+        
+        # Check if transaction was recorded
+        self.assertEqual(len(self.transactions), 1)
+        self.assertEqual(self.transactions[0]['type'], 'buy')
+        self.assertEqual(self.transactions[0]['ticker'], 'AAPL')
+        self.assertEqual(self.transactions[0]['shares'], shares)
+
+    def test_sell_position(self):
+        """Test selling a position."""
+        # First buy a position
+        date = self.prices_df.index[0]
+        buy_price = self.prices_df.loc[date, 'AAPL']
+        shares = 10
+        
+        self.portfolio.buy_position(
+            'AAPL', shares, buy_price, date, self.transactions, "Test purchase"
+        )
+        
+        # Move to a future date for selling
+        sell_date = self.prices_df.index[30]  # 30 days later
+        sell_price = self.prices_df.loc[sell_date, 'AAPL']
+        initial_cash = self.portfolio.cash
+        
+        transaction = self.portfolio.sell_position(
+            'AAPL', shares, sell_price, sell_date, self.transactions, "Test sale"
+        )
+        
+        # Check if shares were removed
+        self.assertEqual(self.portfolio.holdings['AAPL']['shares'], 0)
+        
+        # Check if cash was increased
+        self.assertAlmostEqual(self.portfolio.cash, initial_cash + (shares * sell_price), places=2)
+        
+        # Check if transaction was recorded
+        self.assertEqual(self.transactions[-1]['type'], 'sell')
+        self.assertEqual(self.transactions[-1]['ticker'], 'AAPL')
+        self.assertEqual(self.transactions[-1]['shares'], shares)
+        
+        # Check if gain/loss was calculated
+        expected_gain_loss = (sell_price - buy_price) * shares
+        self.assertAlmostEqual(transaction['gain_loss'], expected_gain_loss, places=2)
+
+    def test_partial_sell(self):
+        """Test selling part of a position."""
+        # First buy a position
+        date = self.prices_df.index[0]
+        buy_price = self.prices_df.loc[date, 'AAPL']
+        shares = 10
+        
+        self.portfolio.buy_position(
+            'AAPL', shares, buy_price, date, self.transactions, "Test purchase"
+        )
+        
+        # Sell half the position
+        sell_date = self.prices_df.index[30]
+        sell_price = self.prices_df.loc[sell_date, 'AAPL']
+        shares_to_sell = 5
+        
+        transaction = self.portfolio.sell_position(
+            'AAPL', shares_to_sell, sell_price, sell_date, self.transactions, "Test partial sale"
+        )
+        
+        # Check if correct number of shares remain
+        self.assertEqual(self.portfolio.holdings['AAPL']['shares'], shares - shares_to_sell)
+
+    def test_invest_available_cash(self):
+        """Test investing available cash according to allocation."""
+        date = self.prices_df.index[0]
+        allocation_weights = {'AAPL': 0.4, 'MSFT': 0.3, 'GOOGL': 0.3}
+        initial_cash = self.portfolio.cash
+        
+        self.portfolio.invest_available_cash(
+            allocation_weights, self.prices_df, date, self.transactions
+        )
+        
+        # Check if cash was fully invested (with possible small remainder)
+        self.assertLess(self.portfolio.cash, 1.0)  # Less than $1 remaining
+        
+        # Check if holdings were created for each ticker
+        for ticker in self.tickers:
+            self.assertGreater(self.portfolio.holdings[ticker]['shares'], 0)
+            
+        # Check if transactions were recorded
+        self.assertEqual(len(self.transactions), 3)  # One transaction per ticker
+
+    def test_portfolio_history(self):
+        """Test tracking portfolio history."""
+        date = self.prices_df.index[0]
+        
+        # Invest some cash
+        allocation_weights = {'AAPL': 0.4, 'MSFT': 0.3, 'GOOGL': 0.3}
+        self.portfolio.invest_available_cash(
+            allocation_weights, self.prices_df, date, self.transactions
+        )
+        
+        # Update portfolio history
+        self.portfolio.update_portfolio_history(self.prices_df, date)
+        
+        # Check if history was recorded
+        self.assertEqual(len(self.portfolio.portfolio_history), 1)
+        self.assertEqual(self.portfolio.portfolio_history[0]['date'], date)
+        self.assertGreater(self.portfolio.portfolio_history[0]['investments_value'], 0)
+
+    def test_rebalance(self):
+        """Test portfolio rebalancing."""
+        # First invest some cash
+        initial_date = self.prices_df.index[0]
+        allocation_weights = {'AAPL': 0.4, 'MSFT': 0.3, 'GOOGL': 0.3}
+        
+        self.portfolio.invest_available_cash(
+            allocation_weights, self.prices_df, initial_date, self.transactions
+        )
+        
+        # Add more cash to trigger rebalance
+        self.portfolio.add_cash(5000)
+        
+        # Move to a future date for rebalancing
+        rebalance_date = self.prices_df.index[89]  # 90 days later
+        excluded_tickers = []
+        
+        # Record pre-rebalance values
+        pre_holdings = {t: h['shares'] for t, h in self.portfolio.holdings.items()}
+        
+        # Perform rebalance
+        self.portfolio.check_and_rebalance(
+            self.prices_df, rebalance_date, rebalance_date, initial_date, 
+            self.transactions, None, excluded_tickers
+        )
+        
+        # Check if rebalance was performed (transactions should be added)
+        self.assertGreater(len(self.transactions), 3)  # More than the initial investments
+        
+        # Check that cash was reinvested
+        self.assertLess(self.portfolio.cash, 10)  # Less than $10 remaining
+        print(self.transactions)
+
+    def test_tax_loss_harvesting(self):
+        """Test tax-loss harvesting functionality."""
+        # First buy some positions
+        date = self.prices_df.index[0]
+        for ticker in self.tickers:
+            price = self.prices_df.loc[date, ticker]
+            self.portfolio.buy_position(
+                ticker, 10, price, date, self.transactions, f"Buy {ticker}"
+            )
+        # Manually adjust one investment's return to trigger tax-loss harvesting
+        self.portfolio.holdings['AAPL']['investments'][0]['cost'] = 1700  # 11% loss
+        
+        # Set a sell trigger of -10%
+        sell_trigger = -10
+        
+        # Track and manage positions
+        future_date = self.prices_df.index[30]
+        transactions_count_before = len(self.transactions)
+        
+        self.portfolio.track_and_manage_positions(
+            self.prices_df, future_date, self.transactions, sell_trigger
+        )
+
+        # Check if a tax-loss harvesting sale was triggered
+        self.assertGreater(len(self.transactions), transactions_count_before)
+        self.assertEqual(self.transactions[-1]['type'], 'sell')
+        self.assertEqual(self.transactions[-1]['ticker'], 'AAPL')
+        self.assertTrue('tax-loss harvesting' in self.transactions[-1]['description'])
+
+if __name__ == '__main__':
+    unittest.main()
+
+# class TestPortfolio(unittest.TestCase):
+#     def setUp(self):
+#         # Initialize a portfolio with some test tickers
+#         self.tickers = ['AAPL', 'MSFT', 'GOOGL']
+#         self.portfolio = Portfolio(rebalance_frequency='monthly', rebalance_threshold='5', \
+#             portfolio_allocation='equal', tickers=self.tickers)
+#         self.portfolio.initialize_holdings(self.tickers)
+        
+#         # Create sample price data - a DataFrame with dates as index and tickers as columns
+#         dates = pd.date_range(start='2025-01-02', periods=90)
+
+#         spy_data = yf.download(
+#                         tickers='AAPL',
+#                         start='2025-01-01',
+#                         end='2025-03-11',
+#                         interval="1d",
+#                         group_by='ticker'
+#                     )
+
+#         self.prices_df = spy_data.xs("Close", level=1, axis=1)
+#         #data = {}
+#         # for ticker in self.tickers:
+#         #     # Generate some random price data
+#         #     base_price = np.random.uniform(100, 200)
+#         #     data[ticker] = [base_price + np.random.uniform(-5, 5) for _ in range(len(dates))]
+        
+#         #self.prices_df = pd.DataFrame(data, index=dates)
+        
+#         # Format dates as strings to match with the portfolio's expected format
+#         self.dates = [d.strftime('%Y-%m-%d') for d in dates]
+        
+#         # Initialize an empty list for transactions
+#         self.transactions = []
+
+#     def test_initialization(self):
+#         """Test portfolio initialization."""
+#         self.assertEqual(self.portfolio.cash, 0)
+#         self.assertEqual(len(self.portfolio.holdings), 3)
+#         for ticker in self.tickers:
+#             self.assertEqual(self.portfolio.holdings[ticker]['shares'], 0)
+#             self.assertEqual(self.portfolio.holdings[ticker]['cost_basis'], 0)
+#             self.assertEqual(len(self.portfolio.holdings[ticker]['investments']), 0)
+
+#     def test_add_cash(self):
+#         """Test adding cash to the portfolio."""
+#         initial_cash = self.portfolio.cash
+#         added_amount = 10000
+#         new_cash = self.portfolio.add_cash(added_amount)
+        
+#         self.assertEqual(new_cash, initial_cash + added_amount)
+#         self.assertEqual(self.portfolio.cash, initial_cash + added_amount)
+
+#     def test_calculate_total_value_empty_portfolio(self):
+#         """Test calculating total value with cash only."""
+#         self.portfolio.add_cash(5000)
+#         total_value = self.portfolio.calculate_total_value(self.prices_df, self.dates[0])
+        
+#         self.assertEqual(total_value, 5000)  # Only cash, no holdings
+
+#     def test_calculate_total_value_with_holdings(self):
+#         """Test calculating total value with cash and holdings."""
+#         self.portfolio.add_cash(10000)
+        
+#         # Buy some shares
+#         date = self.dates[0]
+#         price = self.prices_df.loc[date, 'AAPL']
+#         shares = 10
+#         print(price)
+#         print(date)
+        
+#         # Manually update holdings to simulate a purchase
+#         self.portfolio.holdings['AAPL']['shares'] = shares
+#         self.portfolio.cash -= shares * price
+#         print(self.portfolio.cash)
+#         # Calculate expected total value
+#         expected_value = self.portfolio.cash + (shares * price)
+#         actual_value = self.portfolio.calculate_total_value(self.prices_df, date)
+        
+#         self.assertAlmostEqual(actual_value, expected_value, places=2)
+
+#     def test_buy_position(self):
+#         """Test buying a position."""
+#         self.portfolio.add_cash(10000)
+#         date = self.dates[0]
+#         ticker = 'AAPL'
+#         shares = 10
+#         price = self.prices_df.loc[date, ticker]
+        
+#         initial_cash = self.portfolio.cash
+#         expected_cost = shares * price
+        
+#         self.portfolio.buy_position(
+#             ticker, shares, price, date, self.transactions,
+#             f"Bought {shares} shares of {ticker}"
+#         )
+        
+#         # Check holdings were updated
+#         self.assertEqual(self.portfolio.holdings[ticker]['shares'], shares)
+#         self.assertAlmostEqual(self.portfolio.holdings[ticker]['cost_basis'], price, places=2)
+        
+#         # Check cash was reduced
+#         self.assertAlmostEqual(self.portfolio.cash, initial_cash - expected_cost, places=2)
+        
+#         # Check transaction was recorded
+#         self.assertEqual(len(self.transactions), 1)
+#         self.assertEqual(self.transactions[0]['type'], 'buy')
+#         self.assertEqual(self.transactions[0]['ticker'], ticker)
+#         self.assertEqual(self.transactions[0]['shares'], shares)
+#         print(self.transactions)
+
+#     # def test_buy_position_insufficient_cash(self):
+#     #     """Test buying with insufficient cash."""
+#     #     self.portfolio.add_cash(1000)
+#     #     date = self.dates[0]
+#     #     ticker = 'AAPL'
+#     #     shares = 100  # Intentionally too many shares
+#     #     price = self.prices_df.loc[date, ticker]
+        
+#     #     initial_cash = self.portfolio.cash
+        
+#     #     self.portfolio.buy_position(
+#     #         ticker, shares, price, date, self.transactions,
+#     #         f"Bought {shares} shares of {ticker}"
+#     #     )
+        
+#     #     # Should buy as many shares as possible with available cash
+#     #     expected_shares = initial_cash / price
+#     #     expected_shares = round(expected_shares, 2)
+        
+#     #     # Check holdings were updated correctly
+#     #     self.assertAlmostEqual(self.portfolio.holdings[ticker]['shares'], expected_shares, places=2)
+        
+#     #     # Check cash is nearly zero (accounting for rounding)
+#     #     self.assertLess(self.portfolio.cash, 0.01)
+        
+#     #     # Check transaction was recorded
+#     #     self.assertEqual(len(self.transactions), 1)
+#     #     self.assertEqual(self.transactions[0]['shares'], expected_shares)
+
+#     # def test_sell_position(self):
+#     #     """Test selling a position."""
+#     #     # First buy a position
+#     #     self.portfolio.add_cash(10000)
+#     #     date_buy = self.dates[0]
+#     #     date_sell = self.dates[10]  # Sell 10 days later
+#     #     ticker = 'MSFT'
+#     #     shares_buy = 10
+#     #     price_buy = self.prices_df.loc[date_buy, ticker]
+        
+#     #     self.portfolio.buy_position(
+#     #         ticker, shares_buy, price_buy, date_buy, self.transactions,
+#     #         f"Bought {shares_buy} shares of {ticker}"
+#     #     )
+        
+#     #     # Now sell half the position
+#     #     shares_sell = 5
+#     #     price_sell = self.prices_df.loc[date_sell, ticker]
+#     #     initial_cash = self.portfolio.cash
+        
+#     #     transaction = self.portfolio.sell_position(
+#     #         ticker, shares_sell, price_sell, date_sell, self.transactions,
+#     #         f"Sold {shares_sell} shares of {ticker}"
+#     #     )
+        
+#     #     # Check holdings were updated
+#     #     self.assertEqual(self.portfolio.holdings[ticker]['shares'], shares_buy - shares_sell)
+        
+#     #     # Check cash was increased
+#     #     expected_proceeds = shares_sell * price_sell
+#     #     self.assertAlmostEqual(self.portfolio.cash, initial_cash + expected_proceeds, places=2)
+        
+#     #     # Check transaction was recorded
+#     #     self.assertEqual(len(self.transactions), 2)
+#     #     self.assertEqual(self.transactions[1]['type'], 'sell')
+#     #     self.assertEqual(self.transactions[1]['ticker'], ticker)
+#     #     self.assertEqual(self.transactions[1]['shares'], shares_sell)
+        
+#     #     # Verify the gain/loss calculation
+#     #     expected_gain_loss = (price_sell - price_buy) * shares_sell
+#     #     self.assertAlmostEqual(transaction['gain_loss'], expected_gain_loss, places=2)
+
+#     def test_invest_available_cash(self):
+#         """Test investing available cash according to allocation weights."""
+#         self.portfolio.add_cash(10000)
+#         date = self.dates[0]
+        
+#         # Define allocation weights
+#         allocation_weights = {
+#             'AAPL': 0.5,
+#             'MSFT': 0.3,
+#             'GOOGL': 0.2
+#         }
+        
+#         self.portfolio.invest_available_cash(
+#             allocation_weights, self.prices_df, date, self.transactions
+#         )
+        
+#         # Check that cash was invested
+#         self.assertLess(self.portfolio.cash, 100)  # Small amount might remain due to rounding
+        
+#         # Check that transactions were recorded (one for each ticker)
+#         self.assertEqual(len(self.transactions), 3)
+        
+#         # Check that holdings were updated according to weights
+#         total_investment = 0
+#         for ticker in self.tickers:
+#             total_investment += self.portfolio.holdings[ticker]['shares'] * self.prices_df.loc[date, ticker]
+            
+#         for ticker in self.tickers:
+#             ticker_value = self.portfolio.holdings[ticker]['shares'] * self.prices_df.loc[date, ticker]
+#             ticker_weight = ticker_value / total_investment
+#             self.assertAlmostEqual(ticker_weight, allocation_weights[ticker], places=1)
+
+#     def test_invest_with_excluded_tickers(self):
+#         """Test investing with excluded tickers."""
+#         self.portfolio.add_cash(10000)
+#         date = self.dates[0]
+        
+#         # Define allocation weights
+#         allocation_weights = {
+#             'AAPL': 0.5,
+#             'MSFT': 0.3,
+#             'GOOGL': 0.2
+#         }
+        
+#         # Exclude AAPL
+#         excluded_tickers = ['AAPL']
+        
+#         self.portfolio.invest_available_cash(
+#             allocation_weights, self.prices_df, date, self.transactions, excluded_tickers
+#         )
+        
+#         # Check that no AAPL was purchased
+#         self.assertEqual(self.portfolio.holdings['AAPL']['shares'], 0)
+        
+#         # Check that only 2 transactions were recorded (MSFT and GOOGL)
+#         self.assertEqual(len(self.transactions), 2)
+        
+#         # Verify the remaining weights were proportionally adjusted
+#         # MSFT should be ~60% (0.3/0.5) and GOOGL ~40% (0.2/0.5) of the invested amount
+#         total_investment = 0
+#         for ticker in ['MSFT', 'GOOGL']:
+#             total_investment += self.portfolio.holdings[ticker]['shares'] * self.prices_df.loc[date, ticker]
+            
+#         msft_value = self.portfolio.holdings['MSFT']['shares'] * self.prices_df.loc[date, 'MSFT']
+#         msft_weight = msft_value / total_investment
+#         self.assertAlmostEqual(msft_weight, 0.6, places=1)
+        
+#         googl_value = self.portfolio.holdings['GOOGL']['shares'] * self.prices_df.loc[date, 'GOOGL']
+#         googl_weight = googl_value / total_investment
+#         self.assertAlmostEqual(googl_weight, 0.4, places=1)
+
+    
+
+# if __name__ == '__main__':
+#     unittest.main()
