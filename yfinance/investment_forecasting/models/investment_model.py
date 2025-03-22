@@ -4,7 +4,7 @@ from datetime import datetime
 
 from ..config.settings import DEFAULT_CONFIG, validate_config
 from ..strategies.allocation import calculate_allocation_weights
-from ..strategies.tax_loss_harvesting import track_and_manage_positions
+# from ..strategies.tax_loss_harvesting import track_and_manage_positions
 from ..strategies.rebalancing import check_and_rebalance
 from ..utils.data_loader import download_stock_data, extract_tickers_from_source, extract_top_tickers_from_csv
 from ..utils.date_utils import generate_investment_dates, get_closest_trading_day
@@ -29,7 +29,7 @@ class InvestmentForecastingModel:
         self.rebalance_frequency = config.get('rebalance_frequency', 'quarterly')  # 'monthly', 'quarterly', 'yearly'
         self.rebalance_threshold = config.get('rebalance_threshold', 5)  # Maximum drift percentage before rebalancing
         self.last_rebalance_date = None
-        
+
         # Load tickers
         if isinstance(config.get('tickers_source', ''), str) and config['tickers_source'].endswith('.csv'):
             self.tickers = extract_top_tickers_from_csv(
@@ -39,15 +39,16 @@ class InvestmentForecastingModel:
         else:
             self.tickers = config.get('tickers_source', [])
             
-        # Set up portfolio allocation
+        # Set up portfolio
         self.portfolio_allocation = config.get('portfolio_allocation', 'equal')
+        self.portfolio = Portfolio(self.rebalance_frequency, self.rebalance_threshold, \
+            self.portfolio_allocation, self.tickers)
         
         # Initialize data structures
         self.stock_data = None
         self.investment_dates = []
         self.investments_tracker = []
         self.transactions = []
-        # self.portfolio_history = []
         
     def generate_investment_dates(self):
         """Generate dates for recurring investments based on frequency."""
@@ -83,7 +84,7 @@ class InvestmentForecastingModel:
             prices = self.stock_data.xs("Close", level=1, axis=1)
         
         # Initialize portfolio tracking
-        portfolio = Portfolio(valid_tickers)
+        self.portfolio.initialize_tickers(valid_tickers)
         portfolio_history = []
         transactions = []
         
@@ -99,7 +100,7 @@ class InvestmentForecastingModel:
             'description': 'Initial investment'
         })
         
-        portfolio['cash'] += initial_investment_amount
+        self.portfolio['cash'] += initial_investment_amount
         
         # Process each investment date
         for i, investment_date in enumerate(self.investment_dates):
@@ -111,7 +112,7 @@ class InvestmentForecastingModel:
                 
             # Add recurring investment (except for initial date which is already handled)
             if i > 0:
-                portfolio['cash'] += self.recurring_investment
+                self.portfolio['cash'] += self.recurring_investment
                 transactions.append({
                     'date': investment_date,
                     'type': 'deposit',
@@ -122,51 +123,48 @@ class InvestmentForecastingModel:
             # First, track and manage positions - this will sell losing positions.
             # Keep track of tickers that were sold for tax-loss harvesting. 
             # Return the portfolio updates and the transactions so preserve changes. 
-            portfolio, transactions, sold_tickers = track_and_manage_positions(portfolio, prices, \
+            transactions, sold_tickers = self.portfolio.track_and_manage_positions(prices, \
                 closest_date, transactions, self.sell_trigger)
             
             # Then invest available cash according to allocation, excluding recently sold tickers
-            transactions = portfolio.invest_available_cash(allocation_weights, prices, \
+            transactions = self.portfolio.invest_available_cash(allocation_weights, prices, \
                 closest_date, transactions, excluded_tickers=sold_tickers)
             
             # Rebalance my portfolio.
-            self.last_rebalance_date = check_and_rebalance(portfolio=portfolio, prices=prices, investment_date=investment_date, \
+            #### THEN COME HERE. I need to update my portfolio class to have my rebalance info. 
+            #### This should all be hosted as a portfolio and not within my Forecasting model. 
+            transactions = self.portfolio.check_and_rebalance(prices=prices, investment_date=investment_date, \
                 closest_trading_date=closest_date, start_date=self.start_date, transactions=transactions, rebalance_threshold=self.rebalance_threshold, \
-                rebalance_frequency=self.rebalance_frequency, last_rebalance_date=self.last_rebalance_date, sold_tickers=sold_tickers)
+                rebalance_frequency=self.rebalance_frequency, sold_tickers=sold_tickers)
 
-            # Record portfolio value for this date
-            portfolio_value = self._calculate_portfolio_value(portfolio, prices, closest_date)
-            portfolio_history.append({
-                'date': closest_date,
-                'cash': portfolio['cash'],
-                'investments_value': portfolio_value - portfolio['cash'],
-                'total_value': portfolio_value
-            })
+            # Record portfolio value / history for this date
+            self.portfolio.update_portfolio_history(prices, closest_date)
         
         # End of simulation - calculate final statistics
-        final_date = self._get_closest_trading_day(self.end_date, prices)
-        if final_date and final_date != self.investment_dates[-1]:
-            # One final tracking update at the end date
-            self._track_and_manage_positions(portfolio, prices, final_date, transactions)
-            portfolio_value = self._calculate_portfolio_value(portfolio, prices, final_date)
-            portfolio_history.append({
-                'date': final_date,
-                'cash': portfolio['cash'],
-                'investments_value': portfolio_value - portfolio['cash'],
-                'total_value': portfolio_value
-            })
+        # Taking out the final run. 
+        # final_date = self._get_closest_trading_day(self.end_date, prices)
+        # if final_date and final_date != self.investment_dates[-1]:
+        #     # One final tracking update at the end date
+        #     self._track_and_manage_positions(portfolio, prices, final_date, transactions)
+        #     portfolio_value = self._calculate_portfolio_value(portfolio, prices, final_date)
+        #     portfolio_history.append({
+        #         'date': final_date,
+        #         'cash': portfolio['cash'],
+        #         'investments_value': portfolio_value - portfolio['cash'],
+        #         'total_value': portfolio_value
+        #     })
         
-        self.portfolio = portfolio
-        self.transactions = transactions
-        self.portfolio_history = pd.DataFrame(portfolio_history)
+        # self.transactions = transactions
+        # self.portfolio_history = pd.DataFrame(portfolio_history)
         
         # Calculate performance metrics
         self.calculate_performance_metrics()
+        history = self.portfolio.get_portfolio_history()
         
         return {
-            'portfolio': portfolio,
+            'portfolio': self.portfolio,
             'transactions': transactions,
-            'portfolio_history': self.portfolio_history,
+            'portfolio_history': history,
             'performance_metrics': self.performance_metrics
         }
         
@@ -176,7 +174,7 @@ class InvestmentForecastingModel:
             self.performance_metrics = {}
             return
             
-        history = self.portfolio_history
+        history = self.portfolio.get_portfolio_history()
         
         # Calculate total deposits
         deposits = sum(t['amount'] for t in self.transactions if t['type'] == 'deposit')

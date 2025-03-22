@@ -1,5 +1,5 @@
 import yfinance as yf
-from ..utils.date_utils import get_closest_trading_day
+from utils.date_utils import get_closest_trading_day
 import pandas as pd
 from datetime import datetime, timedelta
 
