@@ -75,24 +75,6 @@ class Portfolio:
             return adjusted_weights
         else:
             print("ERRRROOOORRRR YOU CANNOT DO THIS. ")
-            #elif isinstance(self.portfolio_allocation, str) and self.portfolio_allocation.endswith('.csv'):
-            # Load weights from CSV
-            # try:
-            #     weights_dict = extract_weights_from_csv(self.portfolio_allocation)
-            #     # Filter for only our tickers and normalize
-            #     filtered_weights = {t: weights_dict.get(t, 0) for t in self.tickers}
-            #     total_weight = sum(filtered_weights.values())
-            #     if total_weight > 0:
-            #         return {t: w/total_weight for t, w in filtered_weights.items()}
-            #     else:
-            #         # Fall back to equal weight if no weights found
-            #         weight = 1.0 / len(self.tickers)
-            #         return {ticker: weight for ticker in self.tickers}
-            # except Exception as e:
-            #     print(f"Error loading weights from CSV: {e}")
-            #     # Fall back to equal weight
-            #     weight = 1.0 / len(self.tickers)
-            #     return {ticker: weight for ticker in self.tickers}
 
     def invest_available_cash(self, allocation_weights, prices, date, transactions, excluded_tickers=None):
         """
@@ -145,7 +127,7 @@ class Portfolio:
             shares_to_buy = investment_amount / price
             
             # Round to 2 decimal places for fractional shares
-            shares_to_buy = round(shares_to_buy, 2)
+            shares_to_buy = math.floor(shares_to_buy * 100) / 100
             actual_investment = shares_to_buy * price
             
             # Only buy if at least 0.01 shares
@@ -179,10 +161,10 @@ class Portfolio:
                 current_basis = self.holdings[ticker]['cost_basis']
                 new_basis = (current_basis * (total_shares - shares_to_buy) + actual_investment) / total_shares
                 self.holdings[ticker]['cost_basis'] = new_basis
-                    
+                
                 # Update cash and record transaction
                 self.cash -= actual_investment
-                print(self.cash)
+                # print(self.cash)
                 transactions.append({
                     'date': date,
                     'type': 'buy',
