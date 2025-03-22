@@ -74,7 +74,8 @@ class InvestmentForecastingModel:
             return
             
         # Calculate allocation weights
-        allocation_weights = calculate_allocation_weights(self.tickers, self.portfolio_allocation, self.config['tickers_source'])
+        allocation_weights = self.portfolio.calculate_allocation_weights()
+        # allocation_weights = calculate_allocation_weights(self.tickers, self.portfolio_allocation, self.config['tickers_source'])
         
         # Extract adjusted close prices for analysis
         if "Adj Close" in self.stock_data.columns.levels[1]:

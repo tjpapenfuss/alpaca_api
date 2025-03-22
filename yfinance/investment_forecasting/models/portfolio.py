@@ -1,6 +1,7 @@
 import pandas as pd
 import numpy as np
 from utils.data_loader import extract_weights_from_csv
+import math
 
 class Portfolio:
     def __init__(self, rebalance_frequency, rebalance_threshold, portfolio_allocation, tickers):
@@ -65,27 +66,33 @@ class Portfolio:
             return {ticker: weight for ticker in self.tickers}
         elif isinstance(self.portfolio_allocation, dict):
             # User-provided weights
-            # Normalize to ensure weights sum to 1
-            total_weight = sum(self.portfolio_allocation.values())
-            return {t: w/total_weight for t, w in self.portfolio_allocation.items() if t in self.tickers}
-        elif isinstance(self.portfolio_allocation, str) and self.portfolio_allocation.endswith('.csv'):
+            adjusted_weights = self.portfolio_allocation.copy()
+                                
+            # Normalize remaining weights to sum to 1
+            weight_sum = sum(adjusted_weights.values())
+            if weight_sum > 0:  # Avoid division by zero
+                adjusted_weights = {k: float(f"{(v/weight_sum):.4f}") for k, v in adjusted_weights.items()}
+            return adjusted_weights
+        else:
+            print("ERRRROOOORRRR YOU CANNOT DO THIS. ")
+            #elif isinstance(self.portfolio_allocation, str) and self.portfolio_allocation.endswith('.csv'):
             # Load weights from CSV
-            try:
-                weights_dict = extract_weights_from_csv(self.portfolio_allocation)
-                # Filter for only our tickers and normalize
-                filtered_weights = {t: weights_dict.get(t, 0) for t in self.tickers}
-                total_weight = sum(filtered_weights.values())
-                if total_weight > 0:
-                    return {t: w/total_weight for t, w in filtered_weights.items()}
-                else:
-                    # Fall back to equal weight if no weights found
-                    weight = 1.0 / len(self.tickers)
-                    return {ticker: weight for ticker in self.tickers}
-            except Exception as e:
-                print(f"Error loading weights from CSV: {e}")
-                # Fall back to equal weight
-                weight = 1.0 / len(self.tickers)
-                return {ticker: weight for ticker in self.tickers}
+            # try:
+            #     weights_dict = extract_weights_from_csv(self.portfolio_allocation)
+            #     # Filter for only our tickers and normalize
+            #     filtered_weights = {t: weights_dict.get(t, 0) for t in self.tickers}
+            #     total_weight = sum(filtered_weights.values())
+            #     if total_weight > 0:
+            #         return {t: w/total_weight for t, w in filtered_weights.items()}
+            #     else:
+            #         # Fall back to equal weight if no weights found
+            #         weight = 1.0 / len(self.tickers)
+            #         return {ticker: weight for ticker in self.tickers}
+            # except Exception as e:
+            #     print(f"Error loading weights from CSV: {e}")
+            #     # Fall back to equal weight
+            #     weight = 1.0 / len(self.tickers)
+            #     return {ticker: weight for ticker in self.tickers}
 
     def invest_available_cash(self, allocation_weights, prices, date, transactions, excluded_tickers=None):
         """
@@ -126,15 +133,14 @@ class Portfolio:
         # Normalize remaining weights to sum to 1
         weight_sum = sum(adjusted_weights.values())
         if weight_sum > 0:  # Avoid division by zero
-            adjusted_weights = {k: v/weight_sum for k, v in adjusted_weights.items()}
-        
+            adjusted_weights = {k: float(f"{(v/weight_sum):.4f}") for k, v in adjusted_weights.items()}
         # Calculate amount to invest in each ticker
         for ticker, weight in adjusted_weights.items():
             if ticker not in date_prices or pd.isna(date_prices[ticker]):
                 continue
                     
-            # Calculate investment amount and number of shares
-            investment_amount = available_cash * weight
+            # Calculate investment amount and number of shares. Truncate to two decimal places.
+            investment_amount = math.floor(available_cash * weight * 100) / 100
             price = date_prices[ticker]
             shares_to_buy = investment_amount / price
             
@@ -176,6 +182,7 @@ class Portfolio:
                     
                 # Update cash and record transaction
                 self.cash -= actual_investment
+                print(self.cash)
                 transactions.append({
                     'date': date,
                     'type': 'buy',
