@@ -36,12 +36,6 @@ def download_stock_data(tickers, start_date, end_date):
     except Exception as e:
         print(f"Error downloading stock data: {e}")
         return None, tickers
-    
-def extract_tickers_from_source(source, top_n=250):
-    """
-    Extract ticker symbols from a source (CSV file or list).
-    """
-    # Implementation...
 
 def extract_top_tickers_from_csv(csv_file, top_n=10):
     try:

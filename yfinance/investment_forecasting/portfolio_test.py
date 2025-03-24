@@ -4,8 +4,7 @@ import numpy as np
 from models.portfolio import Portfolio
 import yfinance as yf
 import unittest
-from utils.data_loader import extract_top_tickers_from_csv, extract_weights_from_csv
-from utils.data_loader import download_stock_data
+from utils.data_loader import extract_top_tickers_from_csv, extract_weights_from_csv, download_stock_data
 from utils.allocation import invest_available_cash, calculate_allocation_weights
 from utils.transaction import buy_position, sell_position
 from utils.rebalance import check_and_rebalance
@@ -275,7 +274,7 @@ class TestPortfolio(unittest.TestCase):
         # Perform rebalance
         check_and_rebalance(self.portfolio,
             self.__class__.prices_df, rebalance_date, rebalance_date, initial_date, 
-            self.transactions, None, excluded_tickers
+            self.transactions, excluded_tickers
         )
         
         # Check if rebalance was performed (transactions should be added)

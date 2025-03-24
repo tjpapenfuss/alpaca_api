@@ -2,3 +2,4 @@ pandas
 alpaca-py
 yfinance
 matplotlib
+yaml

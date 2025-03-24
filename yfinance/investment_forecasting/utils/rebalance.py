@@ -72,7 +72,7 @@ def perform_rebalance(portfolio: Portfolio, prices, date, transactions, excluded
                                         
 # Need to repurpose this and put this in the portfolio class as a rebalance portfolio method.
 def check_and_rebalance(portfolio: Portfolio, prices, investment_date, closest_trading_date, start_date, 
-    transactions, last_rebalance_date, sold_tickers=None):
+    transactions, sold_tickers=None):
     """
     Check if portfolio needs rebalancing and perform rebalancing if necessary.
     
@@ -95,13 +95,13 @@ def check_and_rebalance(portfolio: Portfolio, prices, investment_date, closest_t
     should_rebalance_time = False
     current_date = pd.to_datetime(investment_date)
     
-    if last_rebalance_date is None:
+    if portfolio.last_rebalance_date is None:
         # First rebalance should be at least 3 months after start
         first_date = pd.to_datetime(start_date)
         if (current_date - first_date).days >= 90:  # At least 90 days after start
             should_rebalance_time = True
     else:
-        last_rebalance = pd.to_datetime(last_rebalance_date)
+        last_rebalance = pd.to_datetime(portfolio.last_rebalance_date)
         if portfolio.rebalance_frequency == 'monthly':
             should_rebalance_time = (current_date.year > last_rebalance.year or 
                                     (current_date.year == last_rebalance.year and 
