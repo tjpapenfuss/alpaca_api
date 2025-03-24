@@ -1,561 +1,449 @@
 import pandas as pd
 import numpy as np
-from utils.data_loader import extract_weights_from_csv
-import math
+from datetime import datetime, timedelta
 
 class Portfolio:
-    def __init__(self, rebalance_frequency, rebalance_threshold, portfolio_allocation, tickers):
+    def __init__(self, rebalance_frequency, rebalance_threshold, portfolio_allocation, tickers, name="Default Portfolio"):
         """
-        Initialize a portfolio with a list of tickers.
+        Initialize a portfolio with configuration settings and initial tickers.
         
         Parameters:
         -----------
+        rebalance_frequency : str
+            Frequency of portfolio rebalancing ('monthly', 'quarterly', 'yearly')
+        rebalance_threshold : float
+            Threshold (in percentage) that triggers rebalancing due to asset drift
+        portfolio_allocation : dict or str
+            Target allocation for the portfolio. Can be 'equal' or a dictionary with ticker:weight pairs
         tickers : list
-            List of ticker symbols
+            List of ticker symbols in the portfolio
+        name : str, optional
+            Name of the portfolio for identification purposes
         """
+        # Basic portfolio properties
+        self.name = name
+        self.creation_date = datetime.now().strftime("%Y-%m-%d")
         self.cash = 0
+        self.tickers = tickers
+        
+        # Rebalancing configuration
         self.rebalance_frequency = rebalance_frequency
         self.rebalance_threshold = rebalance_threshold
         self.portfolio_allocation = portfolio_allocation
         self.last_rebalance_date = None
-        self.holdings = {}
-        self.tickers = tickers
-        self.portfolio_history = []
         
+        # Storage for portfolio data
+        self.holdings = {}
+        self.portfolio_history = []
+        self.transaction_history = []
+        
+        # Performance metrics
+        self.initial_investment = 0
+        self.total_deposits = 0
+        self.total_withdrawals = 0
+        self.realized_gains = 0
+        self.realized_losses = 0
+        self.tax_loss_harvesting_savings = 0
+        
+        # Risk metrics
+        self.max_drawdown = 0
+        self.volatility = 0
+        
+        # Initialize holdings structure
+        self.initialize_holdings(tickers)
+    
     def initialize_holdings(self, tickers):
-        self.holdings = {ticker: {'shares': 0, 'cost_basis': 0, 'investments': []} 
-                         for ticker in tickers}
+        """
+        Initialize the holdings dictionary with default values for each ticker.
+        
+        Parameters:
+        -----------
+        tickers : list
+            List of ticker symbols to initialize in the portfolio
+        """
+        self.holdings = {ticker: 
+            {
+                'shares': 0, 
+                'cost_basis': 0, 
+                'investments': [], 
+                'current_value': 0,
+                'current_price': 0,
+                'last_update_date': None,
+                'unrealized_gain_loss': 0,
+                'unrealized_gain_loss_pct': 0,
+                'weight': 0,
+                'dividend_income': 0,
+                'sector': None,
+                'asset_class': None
+            } 
+            for ticker in tickers
+        }
 
-    def add_cash(self, amount):
-        """Add cash to the portfolio."""
+    def add_cash(self, amount, transaction_date=None, description="Cash deposit"):
+        """
+        Add cash to the portfolio and record the transaction.
+        
+        Parameters:
+        -----------
+        amount : float
+            Amount of cash to add (positive) or withdraw (negative)
+        transaction_date : str, optional
+            Date of the transaction. Defaults to current date
+        description : str, optional
+            Description of the transaction
+            
+        Returns:
+        --------
+        float
+            Updated cash balance
+        """
+        if transaction_date is None:
+            transaction_date = datetime.now().strftime("%Y-%m-%d")
+            
+        # Update cash balance
         self.cash += amount
+        
+        # Track deposits and withdrawals
+        if amount > 0:
+            self.total_deposits += amount
+            transaction_type = "deposit"
+        else:
+            self.total_withdrawals += abs(amount)
+            transaction_type = "withdrawal"
+            
+        # Record the transaction
+        self.transaction_history.append({
+            'date': transaction_date,
+            'type': transaction_type,
+            'amount': abs(amount),
+            'description': description
+        })
+        
         return self.cash
     
     def calculate_total_value(self, prices_df, date):
-        """Calculate total portfolio value including cash and holdings."""
-        date_prices = prices_df.loc[date]
-        
-        holdings_value = 0
-        for ticker, holding in self.holdings.items():
-            if ticker in date_prices and not pd.isna(date_prices[ticker]):
-                holdings_value += holding['shares'] * date_prices[ticker]
-        
-        return self.cash + holdings_value
-    
-    def update_portfolio_history(self, prices, closest_date):
-        portfolio_value = self.calculate_total_value(prices, closest_date)
-        self.portfolio_history.append({
-                'date': closest_date,
-                'cash': self.cash,
-                'investments_value': portfolio_value - self.cash,
-                'total_value': portfolio_value
-            })
-        return self.portfolio_history
-
-    def get_portfolio_history(self):
-        return self.portfolio_history
-
-    def get_portfolio_holdings(self):
-        return self.holdings
-
-    def calculate_allocation_weights(self):
-        """Calculate allocation weights for the portfolio."""
-        if self.portfolio_allocation == 'equal':
-            # Equal weight allocation
-            weight = 1.0 / len(self.tickers)
-            return {ticker: weight for ticker in self.tickers}
-        elif isinstance(self.portfolio_allocation, dict):
-            # User-provided weights
-            adjusted_weights = self.portfolio_allocation.copy()
-                                
-            # Normalize remaining weights to sum to 1
-            weight_sum = sum(adjusted_weights.values())
-            if weight_sum > 0:  # Avoid division by zero
-                adjusted_weights = {k: float(f"{(v/weight_sum):.4f}") for k, v in adjusted_weights.items()}
-            return adjusted_weights
-        else:
-            print("ERRRROOOORRRR YOU CANNOT DO THIS. ")
-
-    def invest_available_cash(self, allocation_weights, prices, date, transactions, excluded_tickers=None):
         """
-        Invest available cash according to target allocation weights.
+        Calculate total portfolio value including cash and holdings.
+        Also updates current values in holdings.
         
         Parameters:
         -----------
-        allocation_weights : dict
-            Dictionary mapping tickers to target weight
-        prices : DataFrame
-            DataFrame of price data
+        prices_df : pandas.DataFrame
+            DataFrame of price data for all tickers
         date : str
             Date to use for prices
-        transactions : list
-            List to record transactions
-        excluded_tickers : list, optional
-            Tickers to exclude from purchase (e.g., recently sold)
-        """
-        if excluded_tickers is None:
-            excluded_tickers = []
-    
-        date_prices = prices.loc[date]
-        available_cash = self.cash
-        
-        # Skip if no available cash
-        if available_cash <= 0:
-            return transactions
-                
-        # Adjust allocation weights to exclude tickers that were just sold
-        adjusted_weights = allocation_weights.copy()
-        
-        # Remove excluded tickers and normalize remaining weights
-        if excluded_tickers:
-            for ticker in excluded_tickers:
-                if ticker in adjusted_weights:
-                    adjusted_weights.pop(ticker)
-                        
-        # Normalize remaining weights to sum to 1
-        weight_sum = sum(adjusted_weights.values())
-        if weight_sum > 0:  # Avoid division by zero
-            adjusted_weights = {k: float(f"{(v/weight_sum):.4f}") for k, v in adjusted_weights.items()}
-        # Calculate amount to invest in each ticker
-        for ticker, weight in adjusted_weights.items():
-            if ticker not in date_prices or pd.isna(date_prices[ticker]):
-                continue
-                    
-            # Calculate investment amount and number of shares. Truncate to two decimal places.
-            investment_amount = math.floor(available_cash * weight * 100) / 100
-            price = date_prices[ticker]
-            shares_to_buy = investment_amount / price
             
-            # Round to 2 decimal places for fractional shares
-            shares_to_buy = math.floor(shares_to_buy * 100) / 100
-            actual_investment = shares_to_buy * price
-            
-            # Only buy if at least 0.01 shares
-            if shares_to_buy >= 0.01:
-                # Initialize holdings for this ticker if it doesn't exist
-                if ticker not in self.holdings:
-                    self.holdings[ticker] = {
-                        'shares': 0,
-                        'investments': [],
-                        'cost_basis': 0
-                    }
-                
-                # Update portfolio
-                self.holdings[ticker]['shares'] += shares_to_buy
-                
-                # Track this specific investment separately for tax-loss harvesting
-                purchase_record = {
-                    'date': date,
-                    'shares': shares_to_buy,
-                    'price': price,
-                    'cost': actual_investment,
-                    'current_value': actual_investment,
-                    'return_pct': 0,
-                    'days_held': 0,
-                    'sold': False
-                }
-                self.holdings[ticker]['investments'].append(purchase_record)
-                    
-                # Update average cost basis
-                total_shares = self.holdings[ticker]['shares']
-                current_basis = self.holdings[ticker]['cost_basis']
-                new_basis = (current_basis * (total_shares - shares_to_buy) + actual_investment) / total_shares
-                self.holdings[ticker]['cost_basis'] = new_basis
-                
-                # Update cash and record transaction
-                self.cash -= actual_investment
-                # print(self.cash)
-                transactions.append({
-                    'date': date,
-                    'type': 'buy',
-                    'ticker': ticker,
-                    'shares': shares_to_buy,
-                    'price': price,
-                    'amount': actual_investment,
-                    'description': f'Bought {shares_to_buy} shares of {ticker}'
-                })
-        return transactions
-    
-    def buy_position(self, ticker, shares_to_buy, price, date, transactions, description):
+        Returns:
+        --------
+        float
+            Total portfolio value (cash + holdings)
         """
-        Buy shares of a ticker and record the transaction.
+        date_prices = prices_df.loc[date]
+        total_holdings_value = 0
+        
+        # Update each holding's current value
+        for ticker, holding in self.holdings.items():
+            if ticker in date_prices and not pd.isna(date_prices[ticker]):
+                price = date_prices[ticker]
+                current_value = holding['shares'] * price
+                
+                # Update holding information
+                holding['current_price'] = price
+                holding['current_value'] = current_value
+                holding['last_update_date'] = date
+                
+                # Calculate unrealized gain/loss
+                if holding['cost_basis'] > 0 and holding['shares'] > 0:
+                    holding['unrealized_gain_loss'] = current_value - (holding['cost_basis'] * holding['shares'])
+                    holding['unrealized_gain_loss_pct'] = (holding['unrealized_gain_loss'] / 
+                                                          (holding['cost_basis'] * holding['shares'])) * 100
+                
+                total_holdings_value += current_value
+        
+        # Calculate total portfolio value
+        total_value = self.cash + total_holdings_value
+        
+        # Update holdings weights
+        if total_value > 0:
+            for ticker, holding in self.holdings.items():
+                holding['weight'] = (holding['current_value'] / total_value) * 100
+        
+        return total_value
+    
+    def update_portfolio_history(self, prices, closest_date):
+        """
+        Update the portfolio history with current values and metrics.
         
         Parameters:
         -----------
-        ticker : str
-            Ticker symbol
-        shares_to_buy : float
-            Number of shares to buy
-        price : float
-            Price per share
-        date : str
-            Date of purchase
-        transactions : list
-            List to record transactions
-        description : str
-            Description of the transaction
+        prices : pandas.DataFrame
+            DataFrame of price data for all tickers
+        closest_date : str
+            Date to use for updating portfolio history
+            
+        Returns:
+        --------
+        list
+            Updated portfolio history
         """
-        actual_investment = shares_to_buy * price
+        portfolio_value = self.calculate_total_value(prices, closest_date)
+        investments_value = portfolio_value - self.cash
         
-        # Check if we have enough cash
-        if actual_investment > self.cash:
-            shares_to_buy = self.cash / price
-            shares_to_buy = round(shares_to_buy, 2)
-            actual_investment = shares_to_buy * price
+        # Calculate additional metrics
+        previous_value = self.portfolio_history[-1]['total_value'] if self.portfolio_history else 0
+        daily_return = ((portfolio_value / previous_value) - 1) * 100 if previous_value > 0 else 0
         
-        if shares_to_buy > 0:
-            # Initialize holdings for this ticker if it doesn't exist
-            if ticker not in self.holdings:
-                self.holdings[ticker] = {
-                    'shares': 0,
-                    'investments': [],
-                    'cost_basis': 0
-                }
-                
-            # Update portfolio
-            self.holdings[ticker]['shares'] += shares_to_buy
-            
-            # Track this specific investment separately
-            purchase_record = {
-                'date': date,
-                'shares': shares_to_buy,
-                'price': price,
-                'cost': actual_investment,
-                'current_value': actual_investment,
-                'return_pct': 0,
-                'days_held': 0,
-                'sold': False
-            }
-            self.holdings[ticker]['investments'].append(purchase_record)
-            
-            # Update average cost basis
-            total_shares = self.holdings[ticker]['shares']
-            current_basis = self.holdings[ticker]['cost_basis']
-            new_basis = (current_basis * (total_shares - shares_to_buy) + actual_investment) / total_shares
-            self.holdings[ticker]['cost_basis'] = new_basis
-            
-            # Update cash and record transaction
-            self.cash -= actual_investment
-            transactions.append({
-                'date': date,
-                'type': 'buy',
-                'ticker': ticker,
-                'shares': shares_to_buy,
-                'price': price,
-                'amount': actual_investment,
-                'description': description
-            })
-        return transactions
-            
-    def sell_position(self, ticker, shares_to_sell, price, date, transactions, description):
+        # Calculate running max drawdown
+        if self.portfolio_history:
+            peak_value = max([entry['total_value'] for entry in self.portfolio_history] + [portfolio_value])
+            current_drawdown = ((portfolio_value / peak_value) - 1) * 100
+            self.max_drawdown = min(self.max_drawdown, current_drawdown)
+        
+        # Append to history
+        self.portfolio_history.append({
+            'date': closest_date,
+            'cash': self.cash,
+            'investments_value': investments_value,
+            'total_value': portfolio_value,
+            'daily_return': daily_return,
+            'cash_allocation': (self.cash / portfolio_value * 100) if portfolio_value > 0 else 0,
+            'realized_gains_losses': self.realized_gains + self.realized_losses,
+            'max_drawdown': self.max_drawdown
+        })
+        
+        return self.portfolio_history
+    
+    def get_portfolio_history(self):
         """
-        Sell shares of a ticker and record the transaction.
+        Return the complete portfolio history.
         
-        Parameters:
-        -----------
-        ticker : str
-            Ticker symbol
-        shares_to_sell : float
-            Number of shares to sell
-        price : float
-            Price per share
-        date : str
-            Date of sale
-        transactions : list
-            List to record transactions
-        description : str
-            Description of the transaction
+        Returns:
+        --------
+        list
+            List of portfolio history entries
+        """
+        return self.portfolio_history
+    
+    def get_portfolio_holdings(self):
+        """
+        Return current portfolio holdings.
         
         Returns:
         --------
         dict
-            Transaction details including gain/loss
+            Dictionary of current holdings
         """
-        # Handle fractional shares by selling from most recent investments first
-        remaining_to_sell = shares_to_sell
-        realized_gain_loss = 0
-        average_cost = 0
-        total_cost = 0
-        days_held_weighted = 0
-        
-        if ticker not in self.holdings:
-            return None
-            
-        # Find non-sold investments for this ticker
-        active_investments = [inv for inv in self.holdings[ticker]['investments'] if not inv['sold']]
-        
-        # Sort by purchase date (most recent first to reduce short-term gains)
-        active_investments.sort(key=lambda x: x['date'], reverse=True)
-        
-        for investment in active_investments:
-            if remaining_to_sell <= 0:
-                break
-                
-            if investment['shares'] <= remaining_to_sell:
-                # Sell entire investment
-                sold_shares = investment['shares']
-                investment['sold'] = True
-                remaining_to_sell -= sold_shares
-            else:
-                # Sell partial investment
-                sold_shares = remaining_to_sell
-                investment['shares'] -= sold_shares
-                remaining_to_sell = 0
-            
-            # Calculate gain/loss for this lot
-            lot_proceeds = sold_shares * price
-            lot_cost = sold_shares * (investment['cost'] / investment['shares'])
-            lot_gain_loss = lot_proceeds - lot_cost
-            
-            realized_gain_loss += lot_gain_loss
-            total_cost += lot_cost
-            
-            # Track weighted days held for reporting
-            if 'days_held' in investment:
-                days_held_weighted += investment['days_held'] * (sold_shares / shares_to_sell)
-        
-        # Update portfolio holdings
-        actual_shares_sold = shares_to_sell - remaining_to_sell
-        sale_proceeds = actual_shares_sold * price
-        
-        if actual_shares_sold > 0:
-            self.holdings[ticker]['shares'] -= actual_shares_sold
-            self.cash += sale_proceeds
-            
-            # Calculate percentage gain/loss
-            if total_cost > 0:
-                gain_loss_pct = (realized_gain_loss / total_cost) * 100
-            else:
-                gain_loss_pct = 0
-            
-            # Use weighted average days held or default to 0
-            avg_days_held = round(days_held_weighted) if days_held_weighted > 0 else 0
-            
-            # Record transaction
-            transaction = {
-                'date': date,
-                'type': 'sell',
-                'ticker': ticker,
-                'shares': actual_shares_sold,
-                'price': price,
-                'amount': sale_proceeds,
-                'gain_loss': realized_gain_loss,
-                'gain_loss_pct': gain_loss_pct,
-                'days_held': avg_days_held,
-                'description': description
-            }
-            
-            transactions.append(transaction)
-            return transaction
-            
-        return None
-
-    def perform_rebalance(self, prices, date, transactions, excluded_tickers):
+        return self.holdings
+    
+    def get_asset_allocation(self):
         """
-        Rebalance the portfolio to match target allocation weights.
-        Will sell overweight positions and buy underweight positions.
-        """
-        date_prices = prices.loc[date]
-        total_value = self.calculate_total_value(prices, date)
-        target_allocation = self.calculate_allocation_weights()
-        
-        # First, calculate current allocation and target values
-        current_values = {}
-        target_values = {}
-        
-        for ticker, holding in self.holdings.items():
-            if ticker in date_prices and not pd.isna(date_prices[ticker]):
-                current_values[ticker] = holding['shares'] * date_prices[ticker]
-        
-        # Adjust target allocation to exclude recently sold tickers (to avoid wash sales)
-        adjusted_target = target_allocation.copy()
-        for ticker in excluded_tickers:
-            if ticker in adjusted_target:
-                del adjusted_target[ticker]
-                
-        # Normalize the adjusted target allocation
-        if adjusted_target:
-            total_weight = sum(adjusted_target.values())
-            adjusted_target = {k: v/total_weight for k, v in adjusted_target.items()}
-        
-        # Calculate target values based on adjusted allocation
-        for ticker, weight in adjusted_target.items():
-            target_values[ticker] = total_value * weight
-        
-        # Identify positions to sell (overweight)
-        for ticker, current_value in current_values.items():
-            if ticker not in target_values:
-                # Completely sell positions that are no longer in target allocation
-                self.sell_position(ticker,self.holdings[ticker]['shares'], 
-                                date_prices[ticker], date, transactions, "Rebalancing - Sell")
-            elif current_value > target_values[ticker] * 1.02:  # Allow 2% buffer to reduce unnecessary trading
-                # Sell partial position to reach target
-                shares_to_sell = (current_value - target_values[ticker]) / date_prices[ticker]
-                shares_to_sell = round(shares_to_sell, 2)  # Round to 2 decimal places for fractional shares
-                
-                if shares_to_sell > 0.01:  # Only sell if it's at least 0.01 shares
-                    self.sell_position(ticker, shares_to_sell, 
-                                    date_prices[ticker], date, transactions, "Rebalancing - Trim")
-        
-        # Now buy underweight positions with available cash
-        if self.cash > 10:  # Only rebalance if we have at least $10 cash
-            for ticker, target_value in target_values.items():
-                current_value = current_values.get(ticker, 0)
-                
-                if ticker in excluded_tickers:
-                    continue  # Skip recently sold tickers
-                    
-                if ticker in date_prices and not pd.isna(date_prices[ticker]):
-                    if current_value < target_value * 0.98:  # Allow 2% buffer
-                        # Buy to reach target
-                        amount_to_buy = min(target_value - current_value, self.cash)
-                        shares_to_buy = amount_to_buy / date_prices[ticker]
-                        shares_to_buy = round(shares_to_buy, 2)  # Round to 2 decimal places
-                        
-                        if shares_to_buy >= 0.01 and amount_to_buy > 10:  # Minimum purchase
-                            self.buy_position(ticker, shares_to_buy, 
-                                            date_prices[ticker], date, transactions, "Rebalancing - Add")
-                                            
-    # Need to repurpose this and put this in the portfolio class as a rebalance portfolio method.
-    def check_and_rebalance(self, prices, investment_date, closest_trading_date, start_date, 
-        transactions, last_rebalance_date, sold_tickers=None):
-        """
-        Check if portfolio needs rebalancing and perform rebalancing if necessary.
-        
-        Args:
-            portfolio: Current portfolio state
-            prices: DataFrame of prices
-            date: Current date
-            transactions: List to record transactions
-            sold_tickers: List of tickers that were recently sold (to avoid wash sales)
-        """
-        if sold_tickers is None:
-            sold_tickers = []
-        
-        # Skip if no holdings or not enough history
-        if not self.holdings:
-            print("No holdings to rebalance.")
-            return
-            
-        # Check if it's time to rebalance based on frequency
-        should_rebalance_time = False
-        current_date = pd.to_datetime(investment_date)
-        
-        if last_rebalance_date is None:
-            # First rebalance should be at least 3 months after start
-            first_date = pd.to_datetime(start_date)
-            if (current_date - first_date).days >= 90:  # At least 90 days after start
-                should_rebalance_time = True
-        else:
-            last_rebalance = pd.to_datetime(last_rebalance_date)
-            if self.rebalance_frequency == 'monthly':
-                should_rebalance_time = (current_date.year > last_rebalance.year or 
-                                        (current_date.year == last_rebalance.year and 
-                                        current_date.month > last_rebalance.month))
-            elif self.rebalance_frequency == 'quarterly':
-                curr_quarter = (current_date.month - 1) // 3 + 1
-                last_quarter = (last_rebalance.month - 1) // 3 + 1
-                should_rebalance_time = (current_date.year > last_rebalance.year or 
-                                        (current_date.year == last_rebalance.year and 
-                                        curr_quarter > last_quarter))
-            elif self.rebalance_frequency == 'yearly':
-                should_rebalance_time = current_date.year > last_rebalance.year
-                
-        # If not time to rebalance, check drift threshold
-        if not should_rebalance_time:
-            # Calculate current allocation vs target allocation
-            # Here we use closest trading date to make sure we are getting a date where stocks were traded. 
-            date_prices = prices.loc[closest_trading_date]
-            total_value = self.calculate_total_value(prices, closest_trading_date)
-            current_allocation = {}
-            
-            for ticker, holding in self.holdings.items():
-                if ticker in date_prices and not pd.isna(date_prices[ticker]) and holding['shares'] > 0:
-                    current_value = holding['shares'] * date_prices[ticker]
-                    current_allocation[ticker] = current_value / total_value * 100
-            
-            # Get target allocation
-            target_allocation = self.calculate_allocation_weights()
-            target_allocation = {k: v * 100 for k, v in target_allocation.items()}
-            
-            # Calculate maximum drift
-            max_drift = 0
-            for ticker, target_pct in target_allocation.items():
-                if ticker in current_allocation:
-                    drift = abs(current_allocation[ticker] - target_pct)
-                    max_drift = max(max_drift, drift)
-            
-            should_rebalance_drift = max_drift > self.rebalance_threshold
-        else:
-            should_rebalance_drift = False
-            
-        # Perform rebalancing if needed
-        if should_rebalance_time or should_rebalance_drift:
-            self.perform_rebalance(prices, closest_trading_date, transactions, sold_tickers)
-            self.last_rebalance_date = closest_trading_date
-
-    def track_and_manage_positions(self, prices, date, transactions, sell_trigger):
-        """
-        Track position performance and trigger sells based on loss threshold.
-        This implements the tax-loss harvesting strategy.
+        Calculate current asset allocation percentages.
         
         Returns:
-            list: Tickers that were sold for tax-loss harvesting
+        --------
+        dict
+            Dictionary with asset classes and their allocation percentages
         """
-        date_prices = prices.loc[date]
-        sold_tickers = []
-        current_date = pd.to_datetime(date)
+        total_value = sum(holding['current_value'] for holding in self.holdings.values()) + self.cash
+        
+        # Group by asset class
+        allocation = {'Cash': (self.cash / total_value * 100) if total_value > 0 else 0}
         
         for ticker, holding in self.holdings.items():
-            if ticker not in date_prices or pd.isna(date_prices[ticker]):
-                continue
-                
-            current_price = date_prices[ticker]
-            ticker_sold = False
+            asset_class = holding.get('asset_class', 'Unknown')
+            if asset_class not in allocation:
+                allocation[asset_class] = 0
+            allocation[asset_class] += (holding['current_value'] / total_value * 100) if total_value > 0 else 0
             
-            # Update each investment's current value and return
-            for investment in holding['investments']:
-                if investment['sold']:
-                    continue
-                    
-                # Calculate actual days held based on current date
-                purchase_date = pd.to_datetime(investment['date'])
-                
-                # Update days held correctly - calculate the actual days passed
-                investment['days_held'] = (current_date - purchase_date).days
-                # Don't need prev value just the investment cost
-                # previous_value = investment['current_value'] 
-                current_value = investment['shares'] * current_price
-                investment['current_value'] = current_value
-                investment['return_pct'] = ((current_value / investment['cost']) - 1) * 100
-                # Check if this specific investment meets the sell trigger
-                if investment['return_pct'] <= sell_trigger:
-                    # Sell this specific lot
-                    investment['sold'] = True
-                    
-                    # Update portfolio
-                    holding['shares'] -= investment['shares']
-                    sale_proceeds = investment['shares'] * current_price
-                    self.cash += sale_proceeds
-                    
-                    # Calculate loss for reporting
-                    realized_loss = sale_proceeds - investment['cost']
-                    # Record transaction
-                    transactions.append({
-                        'date': date,
-                        'type': 'sell',
-                        'ticker': ticker,
-                        'shares': investment['shares'],
-                        'price': current_price,
-                        'amount': sale_proceeds,
-                        'gain_loss': realized_loss,
-                        'gain_loss_pct': investment['return_pct'],
-                        'days_held': investment['days_held'],
-                        'description': f'Sold {investment["shares"]} shares of {ticker} for tax-loss harvesting'
-                    })
-                    ticker_sold = True
-            
-            if ticker_sold:
-                sold_tickers.append(ticker)
+        return allocation
+    
+    def get_sector_allocation(self):
+        """
+        Calculate current sector allocation percentages.
         
-        return transactions, sold_tickers
+        Returns:
+        --------
+        dict
+            Dictionary with sectors and their allocation percentages
+        """
+        total_value = sum(holding['current_value'] for holding in self.holdings.values())
+        
+        # Group by sector
+        allocation = {}
+        for ticker, holding in self.holdings.items():
+            sector = holding.get('sector', 'Unknown')
+            if sector not in allocation:
+                allocation[sector] = 0
+            allocation[sector] += (holding['current_value'] / total_value * 100) if total_value > 0 else 0
+            
+        return allocation
+    
+    def calculate_performance_metrics(self, end_date=None):
+        """
+        Calculate key performance metrics for the portfolio.
+        
+        Parameters:
+        -----------
+        end_date : str, optional
+            End date for calculating metrics. Defaults to latest date in history
+            
+        Returns:
+        --------
+        dict
+            Dictionary with various performance metrics
+        """
+        if not self.portfolio_history:
+            return {
+                'total_return': 0,
+                'annualized_return': 0,
+                'sharpe_ratio': 0,
+                'volatility': 0,
+                'max_drawdown': 0
+            }
+            
+        # Determine date range
+        start_history = self.portfolio_history[0]
+        end_history = self.portfolio_history[-1] if end_date is None else next(
+            (h for h in reversed(self.portfolio_history) if h['date'] <= end_date), 
+            self.portfolio_history[-1]
+        )
+        
+        start_date = start_history['date']
+        end_date = end_history['date']
+        
+        # Extract daily returns
+        returns = [entry['daily_return'] for entry in self.portfolio_history]
+        
+        # Calculate metrics
+        total_return = ((end_history['total_value'] - self.total_deposits + self.total_withdrawals) / 
+                        (self.total_deposits)) * 100 if self.total_deposits > 0 else 0
+                        
+        # Days between start and end
+        start_dt = pd.to_datetime(start_date)
+        end_dt = pd.to_datetime(end_date)
+        days = (end_dt - start_dt).days
+        
+        # Annualized return
+        annualized_return = ((1 + total_return/100) ** (365/days) - 1) * 100 if days > 0 else 0
+        
+        # Volatility (annualized standard deviation of returns)
+        volatility = np.std(returns) * np.sqrt(252) if returns else 0
+        self.volatility = volatility
+        
+        # Sharpe ratio (assuming risk-free rate of 0 for simplicity)
+        sharpe_ratio = annualized_return / volatility if volatility > 0 else 0
+        
+        return {
+            'total_return': total_return,
+            'annualized_return': annualized_return,
+            'sharpe_ratio': sharpe_ratio,
+            'volatility': volatility,
+            'max_drawdown': self.max_drawdown,
+            'realized_gains': self.realized_gains,
+            'realized_losses': self.realized_losses,
+            'tax_loss_harvesting_savings': self.tax_loss_harvesting_savings
+        }
+    
+    def record_dividend(self, ticker, amount, date, description="Dividend payment"):
+        """
+        Record a dividend payment for a ticker.
+        
+        Parameters:
+        -----------
+        ticker : str
+            Ticker symbol that paid the dividend
+        amount : float
+            Dividend amount
+        date : str
+            Date of the dividend payment
+        description : str, optional
+            Description of the dividend payment
+        """
+        if ticker in self.holdings:
+            self.holdings[ticker]['dividend_income'] += amount
+            self.cash += amount
+            
+            # Record transaction
+            self.transaction_history.append({
+                'date': date,
+                'type': 'dividend',
+                'ticker': ticker,
+                'amount': amount,
+                'description': description
+            })
+    
+    def set_ticker_metadata(self, ticker, sector=None, asset_class=None):
+        """
+        Set metadata for a ticker in the portfolio.
+        
+        Parameters:
+        -----------
+        ticker : str
+            Ticker symbol
+        sector : str, optional
+            Sector classification
+        asset_class : str, optional
+            Asset class (e.g., 'Equity', 'Bond', etc.)
+        """
+        if ticker in self.holdings:
+            if sector:
+                self.holdings[ticker]['sector'] = sector
+            if asset_class:
+                self.holdings[ticker]['asset_class'] = asset_class
+    
+    def get_transaction_history(self, transaction_type=None, start_date=None, end_date=None):
+        """
+        Get filtered transaction history.
+        
+        Parameters:
+        -----------
+        transaction_type : str, optional
+            Filter by transaction type (buy, sell, deposit, withdrawal, dividend)
+        start_date : str, optional
+            Start date for filtering
+        end_date : str, optional
+            End date for filtering
+            
+        Returns:
+        --------
+        list
+            Filtered transaction history
+        """
+        filtered = self.transaction_history
+        
+        if transaction_type:
+            filtered = [t for t in filtered if t['type'] == transaction_type]
+        
+        if start_date:
+            filtered = [t for t in filtered if t['date'] >= start_date]
+            
+        if end_date:
+            filtered = [t for t in filtered if t['date'] <= end_date]
+            
+        return filtered
+    
+    def export_to_dataframe(self):
+        """
+        Export portfolio data to pandas DataFrames.
+        
+        Returns:
+        --------
+        tuple
+            (holdings_df, history_df, transactions_df)
+        """
+        # Holdings DataFrame
+        holdings_df = pd.DataFrame([
+            {
+                'ticker': ticker,
+                **{k: v for k, v in data.items() if k != 'investments'}
+            }
+            for ticker, data in self.holdings.items()
+        ])
+        
+        # History DataFrame
+        history_df = pd.DataFrame(self.portfolio_history)
+        
+        # Transactions DataFrame
+        transactions_df = pd.DataFrame(self.transaction_history)
+        
+        return holdings_df, history_df, transactions_df

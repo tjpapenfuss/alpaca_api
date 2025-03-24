@@ -2,15 +2,15 @@ import pandas as pd
 import numpy as np
 from datetime import datetime
 
-from ..config.settings import DEFAULT_CONFIG, validate_config
-from ..strategies.allocation import calculate_allocation_weights
+from config.settings import DEFAULT_CONFIG, validate_config
+from utils.allocation import calculate_allocation_weights
 # from ..strategies.tax_loss_harvesting import track_and_manage_positions
-from ..strategies.rebalancing import check_and_rebalance
-from ..utils.data_loader import download_stock_data, extract_tickers_from_source, extract_top_tickers_from_csv
-from ..utils.date_utils import generate_investment_dates, get_closest_trading_day
+from strategies.rebalancing import check_and_rebalance
+from utils.data_loader import download_stock_data, extract_tickers_from_source, extract_top_tickers_from_csv
+from utils.date_utils import generate_investment_dates, get_closest_trading_day
 # from ..utils.portfolio_utils import invest_available_cash, calculate_portfolio_value
-from ..utils.reporting import generate_report, plot_portfolio_growth, export_results
-from ..models.portfolio import Portfolio
+from utils.reporting import generate_report, plot_portfolio_growth, export_results
+from models.portfolio import Portfolio
 
 class InvestmentForecastingModel:
     def __init__(self, config):

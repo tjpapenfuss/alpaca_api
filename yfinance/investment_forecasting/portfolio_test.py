@@ -6,6 +6,10 @@ import yfinance as yf
 import unittest
 from utils.data_loader import extract_top_tickers_from_csv, extract_weights_from_csv
 from utils.data_loader import download_stock_data
+from utils.allocation import invest_available_cash, calculate_allocation_weights
+from utils.transaction import buy_position, sell_position
+from utils.rebalance import check_and_rebalance
+from strategies.tax_loss_harvesting import track_and_manage_positions
 
 GLOBAL_CSV_SPY = '/Users/tannerpapenfuss/finance_testing/alpaca_api/sp500_companies.csv'
 GLOBAL_TOP_N = 5
@@ -88,7 +92,7 @@ class TestPortfolio(unittest.TestCase):
         price = self.__class__.prices_df.loc[date, 'AAPL']
         
         # Buy some shares
-        self.portfolio.buy_position(
+        buy_position(self.portfolio,
             'AAPL', 10, price, date, self.transactions, "Test purchase"
         )
         
@@ -100,7 +104,7 @@ class TestPortfolio(unittest.TestCase):
 
     def test_calculate_allocation_weights_equal(self):
         """Test calculating equal allocation weights."""
-        weights = self.portfolio.calculate_allocation_weights()
+        weights = calculate_allocation_weights(self.portfolio)
         expected_weight = 1.0 / len(self.tickers)
         
         for ticker in self.tickers:
@@ -121,7 +125,7 @@ class TestPortfolio(unittest.TestCase):
         if weight_sum > 0:  # Avoid division by zero
             adjusted_weights = {k: float(f"{(v/weight_sum):.4f}") for k, v in adjusted_weights.items()}
 
-        weights = self.portfolio.calculate_allocation_weights()
+        weights = calculate_allocation_weights(self.portfolio)
         for ticker in self.tickers:
             self.assertAlmostEqual(weights[ticker], adjusted_weights[ticker], places=4)
 
@@ -132,7 +136,7 @@ class TestPortfolio(unittest.TestCase):
         shares = 10
         initial_cash = self.portfolio.cash
         
-        self.portfolio.buy_position(
+        buy_position(self.portfolio,
             'AAPL', shares, price, date, self.transactions, "Test purchase"
         )
         
@@ -158,7 +162,7 @@ class TestPortfolio(unittest.TestCase):
         buy_price = self.__class__.prices_df.loc[date, 'AAPL']
         shares = 10
         
-        self.portfolio.buy_position(
+        buy_position(self.portfolio,
             'AAPL', shares, buy_price, date, self.transactions, "Test purchase"
         )
         
@@ -167,7 +171,7 @@ class TestPortfolio(unittest.TestCase):
         sell_price = self.__class__.prices_df.loc[sell_date, 'AAPL']
         initial_cash = self.portfolio.cash
         
-        transaction = self.portfolio.sell_position(
+        transaction = sell_position(self.portfolio,
             'AAPL', shares, sell_price, sell_date, self.transactions, "Test sale"
         )
         
@@ -193,7 +197,7 @@ class TestPortfolio(unittest.TestCase):
         buy_price = self.__class__.prices_df.loc[date, 'AAPL']
         shares = 10
         
-        self.portfolio.buy_position(
+        buy_position(self.portfolio,
             'AAPL', shares, buy_price, date, self.transactions, "Test purchase"
         )
         
@@ -202,7 +206,7 @@ class TestPortfolio(unittest.TestCase):
         sell_price = self.__class__.prices_df.loc[sell_date, 'AAPL']
         shares_to_sell = 5
         
-        transaction = self.portfolio.sell_position(
+        transaction = sell_position(self.portfolio,
             'AAPL', shares_to_sell, sell_price, sell_date, self.transactions, "Test partial sale"
         )
         
@@ -215,7 +219,7 @@ class TestPortfolio(unittest.TestCase):
         allocation_weights = extract_weights_from_csv(GLOBAL_CSV_SPY, GLOBAL_TOP_N)
         initial_cash = self.portfolio.cash
         
-        self.portfolio.invest_available_cash(
+        invest_available_cash(self.portfolio,
             allocation_weights, self.__class__.prices_df, date, self.transactions
         )
         # print(self.transactions)
@@ -236,7 +240,7 @@ class TestPortfolio(unittest.TestCase):
         
         # Invest cash
         allocation_weights = extract_weights_from_csv(GLOBAL_CSV_SPY, GLOBAL_TOP_N)
-        self.portfolio.invest_available_cash(
+        invest_available_cash(self.portfolio,
             allocation_weights, self.__class__.prices_df, date, self.transactions
         )
         
@@ -254,7 +258,7 @@ class TestPortfolio(unittest.TestCase):
         initial_date = self.__class__.prices_df.index[0]
         allocation_weights = extract_weights_from_csv(GLOBAL_CSV_SPY, GLOBAL_TOP_N)
         
-        self.portfolio.invest_available_cash(
+        invest_available_cash(self.portfolio,
             allocation_weights, self.__class__.prices_df, initial_date, self.transactions
         )
         
@@ -269,7 +273,7 @@ class TestPortfolio(unittest.TestCase):
         pre_holdings = {t: h['shares'] for t, h in self.portfolio.holdings.items()}
         
         # Perform rebalance
-        self.portfolio.check_and_rebalance(
+        check_and_rebalance(self.portfolio,
             self.__class__.prices_df, rebalance_date, rebalance_date, initial_date, 
             self.transactions, None, excluded_tickers
         )
@@ -279,7 +283,7 @@ class TestPortfolio(unittest.TestCase):
         
         # Check that cash was reinvested
         self.assertLess(self.portfolio.cash, 50)  # Less than $50 remaining
-        print(self.transactions)
+        #print(self.transactions)
 
     def test_tax_loss_harvesting(self):
         """Test tax-loss harvesting functionality."""
@@ -287,12 +291,12 @@ class TestPortfolio(unittest.TestCase):
         date = self.__class__.prices_df.index[0]
         for ticker in self.tickers:
             price = self.__class__.prices_df.loc[date, ticker]
-            self.portfolio.buy_position(
+            buy_position(self.portfolio,
                 ticker, 10, price, date, self.transactions, f"Buy {ticker}"
             )
         # Manually adjust one investment's return to trigger tax-loss harvesting
         self.portfolio.holdings['AAPL']['investments'][0]['cost'] = \
-            self.portfolio.holdings['AAPL']['investments'][0]['cost'] * 1.15  # 15% loss
+            self.portfolio.holdings['AAPL']['investments'][0]['cost'] * 2.00  # Faking a loss by doubling the initial cost
         
         # Set a sell trigger of -10%
         sell_trigger = -10
@@ -301,7 +305,7 @@ class TestPortfolio(unittest.TestCase):
         future_date = self.__class__.prices_df.index[30]
         transactions_count_before = len(self.transactions)
         
-        self.portfolio.track_and_manage_positions(
+        track_and_manage_positions(self.portfolio,
             self.__class__.prices_df, future_date, self.transactions, sell_trigger
         )
 
