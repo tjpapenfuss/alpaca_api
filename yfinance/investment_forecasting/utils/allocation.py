@@ -14,7 +14,7 @@ def calculate_allocation_weights(portfolio: Portfolio):
     elif isinstance(portfolio.portfolio_allocation, dict):
         # User-provided weights
         adjusted_weights = portfolio.portfolio_allocation.copy()
-                            
+        
         # Normalize remaining weights to sum to 1
         weight_sum = sum(adjusted_weights.values())
         if weight_sum > 0:  # Avoid division by zero

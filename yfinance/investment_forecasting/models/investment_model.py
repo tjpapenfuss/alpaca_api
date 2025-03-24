@@ -3,7 +3,7 @@ import numpy as np
 from datetime import datetime
 
 from config.settings import DEFAULT_CONFIG, validate_config
-from utils.data_loader import download_stock_data, extract_top_tickers_from_csv
+from utils.data_loader import extract_top_tickers_from_csv, extract_weights_from_csv, download_stock_data
 from utils.date_utils import generate_investment_dates, get_closest_trading_day
 from utils.reporting import generate_report, plot_portfolio_growth, export_results
 from models.portfolio import Portfolio
@@ -47,10 +47,20 @@ class InvestmentForecastingModel:
             top_n=self.top_n
         )
         
-        # self.tickers = self._load_tickers_from_config(config)
-            
         # Initialize portfolio with allocation strategy
         self.portfolio_allocation = config.get('portfolio_allocation', 'equal')
+        if(self.portfolio_allocation != 'equal'):
+            # self.tickers = self._load_tickers_from_config(config)
+            custom_allocation = extract_weights_from_csv(self.tickers_source, self.top_n)
+            
+            # Adjust allocation weights to exclude tickers that were just sold
+            adjusted_weights = custom_allocation.copy()
+
+            # Normalize remaining weights to sum to 1
+            weight_sum = sum(adjusted_weights.values())
+            if weight_sum > 0:  # Avoid division by zero
+                self.portfolio_allocation = {k: float(f"{(v/weight_sum):.4f}") for k, v in adjusted_weights.items()}            
+        
         self.portfolio = Portfolio(
             rebalance_frequency=self.rebalance_frequency, 
             rebalance_threshold=self.rebalance_threshold,

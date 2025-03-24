@@ -1,4 +1,5 @@
 from models.investment_model import InvestmentForecastingModel
+import pandas as pd
 
 # Function to run a simulation from a configuration file
 def run_investment_simulation(config_file=None, config_dict=None):
@@ -46,10 +47,11 @@ if __name__ == '__main__':
     results = run_investment_simulation(config_file=config_file)
 
     print("Results are in")
-    print(results['portfolio'])
-    print("transactions")
-    print(results['transactions'])
-    print("history")
-    print(results['portfolio_history'])
+    port_df = pd.DataFrame(results['portfolio'])
+    port_df.to_csv('portfolio.csv', index=False)
+    transaction_df = pd.DataFrame(results['transactions'])
+    transaction_df.to_csv('transactions.csv', index=False)
+    history_df = pd.DataFrame(results['portfolio_history'])
+    history_df.to_csv('history.csv', index=False)
     print("metrics")
     print(results['performance_metrics'])
