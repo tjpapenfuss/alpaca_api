@@ -34,17 +34,17 @@ def track_and_manage_positions(portfolio: Portfolio, prices, date, transactions,
             investment['days_held'] = (current_date - purchase_date).days
             # Don't need prev value just the investment cost
             # previous_value = investment['current_value'] 
-            current_value = investment['shares'] * current_price
+            current_value = round(investment['shares'] * current_price, 2)
             investment['current_value'] = current_value
-            investment['return_pct'] = ((current_value / investment['cost']) - 1) * 100
+            investment['return_pct'] = round(((current_value / investment['cost']) - 1) * 100, 2)
             # Check if this specific investment meets the sell trigger
             if investment['return_pct'] <= sell_trigger:
                 # Sell this specific lot
                 investment['sold'] = True
                 
                 # Update portfolio
-                holding['shares'] -= investment['shares']
-                sale_proceeds = investment['shares'] * current_price
+                holding['shares'] = round(holding['shares'] - investment['shares'], 4)
+                sale_proceeds = round(investment['shares'] * current_price,2)
                 portfolio.cash += sale_proceeds
                 
                 # Calculate loss for reporting

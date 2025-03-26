@@ -175,7 +175,7 @@ class InvestmentForecastingModel:
             'performance_metrics': self.performance_metrics
         }
     
-    def _extract_price_data(self):
+    def _extract_price_data(self, decimals=2):
         """
         Extract price data from stock data.
         
@@ -185,7 +185,8 @@ class InvestmentForecastingModel:
             DataFrame of adjusted close prices
         """
         if "Close" in self.stock_data.columns.levels[1]:
-            return self.stock_data.xs("Close", level=1, axis=1)
+            close_prices = self.stock_data.xs("Close", level=1, axis=1)
+            return close_prices.round(decimals)
         else:
             print("Error: 'Close' column not found in data.")
             return None
@@ -328,6 +329,7 @@ class InvestmentForecastingModel:
             'realized_losses': realized_losses,
             'tax_savings_estimate': realized_losses * -0.30,  # Assuming 30% tax rate
             'num_transactions': len(self.portfolio.get_transaction_history())
+            
         }
         
         return self.performance_metrics
@@ -359,10 +361,6 @@ def rebalance_tickers(portfolio: Portfolio, prices, investment_date, closest_tra
     """
     # Get current transaction history
     transactions = portfolio.get_transaction_history()
-    
-    # Get rebalancing settings from portfolio
-    rebalance_frequency = portfolio.rebalance_frequency
-    rebalance_threshold = portfolio.rebalance_threshold
     
     # Perform rebalancing if needed
     from utils.rebalance import check_and_rebalance

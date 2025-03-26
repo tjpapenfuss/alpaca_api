@@ -76,7 +76,7 @@ def invest_available_cash(portfolio: Portfolio, allocation_weights, prices, date
         
         # Round to 2 decimal places for fractional shares
         shares_to_buy = math.floor(shares_to_buy * 100) / 100
-        actual_investment = shares_to_buy * price
+        actual_investment = round(shares_to_buy * price, 2)
         
         # Only buy if at least 0.01 shares
         if shares_to_buy >= 0.01:

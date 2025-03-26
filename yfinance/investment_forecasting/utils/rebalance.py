@@ -39,9 +39,10 @@ def perform_rebalance(portfolio: Portfolio, prices, date, transactions, excluded
     # Identify positions to sell (overweight)
     for ticker, current_value in current_values.items():
         if ticker not in target_values:
-            # Completely sell positions that are no longer in target allocation
-            sell_position(portfolio, ticker,portfolio.holdings[ticker]['shares'], 
-                            date_prices[ticker], date, transactions, "Rebalancing - Sell")
+            if ticker not in excluded_tickers:
+                # Completely sell positions that are no longer in target allocation
+                sell_position(portfolio, ticker,portfolio.holdings[ticker]['shares'], 
+                                date_prices[ticker], date, transactions, "Rebalancing - Sell")
         elif current_value > target_values[ticker] * 1.02:  # Allow 2% buffer to reduce unnecessary trading
             # Sell partial position to reach target
             shares_to_sell = (current_value - target_values[ticker]) / date_prices[ticker]

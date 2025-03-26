@@ -19,7 +19,7 @@ def buy_position(portfolio: Portfolio, ticker, shares_to_buy, price, date, trans
     description : str
         Description of the transaction
     """
-    actual_investment = shares_to_buy * price
+    actual_investment = round(shares_to_buy * price, 2)
     
     # Check if we have enough cash
     if actual_investment > portfolio.cash:
@@ -114,22 +114,36 @@ def sell_position(portfolio: Portfolio, ticker, shares_to_sell, price, date, tra
     for investment in active_investments:
         if remaining_to_sell <= 0:
             break
-            
+        # invest_shares = investment['shares']
         if investment['shares'] <= remaining_to_sell:
             # Sell entire investment
             sold_shares = investment['shares']
             investment['sold'] = True
             remaining_to_sell -= sold_shares
+            desc = f'Sell of {investment["shares"]} shares of {ticker} for {description}'
         else:
             # Sell partial investment
             sold_shares = remaining_to_sell
-            investment['shares'] -= sold_shares
+            investment['shares'] = round(investment['shares'] - sold_shares, 4) 
             remaining_to_sell = 0
+            desc = f'Partial sell of {sold_shares} shares of {ticker} for {description}'
         
         # Calculate gain/loss for this lot
         lot_proceeds = sold_shares * price
-        lot_cost = sold_shares * (investment['cost'] / investment['shares'])
+        lot_cost = sold_shares * investment['price']
         lot_gain_loss = lot_proceeds - lot_cost
+        transactions.append({
+                'date': date,
+                'type': 'sell',
+                'ticker': ticker,
+                'shares': investment['shares'],
+                'price': price,
+                'amount': lot_proceeds,
+                'gain_loss': lot_gain_loss,
+                'gain_loss_pct': investment['return_pct'],
+                'days_held': investment['days_held'],
+                'description': desc
+            })
         
         realized_gain_loss += lot_gain_loss
         total_cost += lot_cost

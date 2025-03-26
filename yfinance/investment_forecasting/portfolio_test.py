@@ -10,7 +10,7 @@ from utils.transaction import buy_position, sell_position
 from utils.rebalance import check_and_rebalance
 from strategies.tax_loss_harvesting import track_and_manage_positions
 
-GLOBAL_CSV_SPY = '/Users/tannerpapenfuss/finance_testing/alpaca_api/sp500_companies.csv'
+GLOBAL_CSV_SPY = 'sp500_companies.csv'
 GLOBAL_TOP_N = 5
 
 class TestPortfolio(unittest.TestCase):
