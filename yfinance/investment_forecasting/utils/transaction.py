@@ -1,4 +1,5 @@
 from models.portfolio import Portfolio
+from utils.reporting import record_gains_losses
 
 def buy_position(portfolio: Portfolio, ticker, shares_to_buy, price, date, transactions, description):
     """
@@ -25,7 +26,7 @@ def buy_position(portfolio: Portfolio, ticker, shares_to_buy, price, date, trans
     if actual_investment > portfolio.cash:
         shares_to_buy = portfolio.cash / price
         shares_to_buy = round(shares_to_buy, 2)
-        actual_investment = shares_to_buy * price
+        actual_investment = round(shares_to_buy * price, 2)
     
     if shares_to_buy > 0:
         # Initialize holdings for this ticker if it doesn't exist
@@ -108,25 +109,35 @@ def sell_position(portfolio: Portfolio, ticker, shares_to_sell, price, date, tra
     # Find non-sold investments for this ticker
     active_investments = [inv for inv in portfolio.holdings[ticker]['investments'] if not inv['sold']]
     
-    # Sort by purchase date (most recent first to reduce short-term gains)
-    active_investments.sort(key=lambda x: x['date'], reverse=True)
+    # Separate investments into loss and gain buckets
+    loss_investments = [inv for inv in active_investments if inv['price'] > price]
+    gain_investments = [inv for inv in active_investments if inv['price'] <= price]
     
-    for investment in active_investments:
+    # Sort loss investments by highest loss first (purchase price descending)
+    loss_investments.sort(key=lambda x: x['price'], reverse=True)
+    
+    # Sort gain investments by oldest first (date ascending)
+    gain_investments.sort(key=lambda x: x['date'])
+    
+    # Combine lists: loss investments first, then gain investments
+    selling_queue = loss_investments + gain_investments
+    
+    for investment in selling_queue:
         if remaining_to_sell <= 0:
             break
-        # invest_shares = investment['shares']
+        #invest_shares = investment['shares']
         if investment['shares'] <= remaining_to_sell:
             # Sell entire investment
             sold_shares = investment['shares']
             investment['sold'] = True
             remaining_to_sell -= sold_shares
-            desc = f'Sell of {investment["shares"]} shares of {ticker} for {description}'
+            desc = f'Sell of {investment["shares"]} shares of {ticker} purchased on {investment['date']} for {description}'
         else:
             # Sell partial investment
             sold_shares = remaining_to_sell
             investment['shares'] = round(investment['shares'] - sold_shares, 4) 
             remaining_to_sell = 0
-            desc = f'Partial sell of {sold_shares} shares of {ticker} for {description}'
+            desc = f'Partial sell of {sold_shares} shares of {ticker} purchased on {investment['date']} for {description}'
         
         # Calculate gain/loss for this lot
         lot_proceeds = sold_shares * price
@@ -136,7 +147,7 @@ def sell_position(portfolio: Portfolio, ticker, shares_to_sell, price, date, tra
                 'date': date,
                 'type': 'sell',
                 'ticker': ticker,
-                'shares': investment['shares'],
+                'shares': sold_shares,
                 'price': price,
                 'amount': lot_proceeds,
                 'gain_loss': lot_gain_loss,
@@ -144,6 +155,8 @@ def sell_position(portfolio: Portfolio, ticker, shares_to_sell, price, date, tra
                 'days_held': investment['days_held'],
                 'description': desc
             })
+        # Keep records of my gains and losses.
+        record_gains_losses(lot_gain_loss, investment['days_held'], portfolio)
         
         realized_gain_loss += lot_gain_loss
         total_cost += lot_cost
@@ -160,30 +173,30 @@ def sell_position(portfolio: Portfolio, ticker, shares_to_sell, price, date, tra
         portfolio.holdings[ticker]['shares'] -= actual_shares_sold
         portfolio.cash += sale_proceeds
         
-        # Calculate percentage gain/loss
-        if total_cost > 0:
-            gain_loss_pct = (realized_gain_loss / total_cost) * 100
-        else:
-            gain_loss_pct = 0
+        # # Calculate percentage gain/loss
+        # if total_cost > 0:
+        #     gain_loss_pct = (realized_gain_loss / total_cost) * 100
+        # else:
+        #     gain_loss_pct = 0
         
-        # Use weighted average days held or default to 0
-        avg_days_held = round(days_held_weighted) if days_held_weighted > 0 else 0
+        # # Use weighted average days held or default to 0
+        # avg_days_held = round(days_held_weighted) if days_held_weighted > 0 else 0
         
-        # Record transaction
-        transaction = {
-            'date': date,
-            'type': 'sell',
-            'ticker': ticker,
-            'shares': actual_shares_sold,
-            'price': price,
-            'amount': sale_proceeds,
-            'gain_loss': realized_gain_loss,
-            'gain_loss_pct': gain_loss_pct,
-            'days_held': avg_days_held,
-            'description': description
-        }
+        # # Record transaction
+        # transaction = {
+        #     'date': date,
+        #     'type': 'sell',
+        #     'ticker': ticker,
+        #     'shares': actual_shares_sold,
+        #     'price': price,
+        #     'amount': sale_proceeds,
+        #     'gain_loss': realized_gain_loss,
+        #     'gain_loss_pct': gain_loss_pct,
+        #     'days_held': avg_days_held,
+        #     'description': description
+        # }
         
-        transactions.append(transaction)
-        return transaction
+        # transactions.append(transaction)
+        return transactions
         
     return None

@@ -328,10 +328,14 @@ class InvestmentForecastingModel:
             'annualized_return': annualized_return,
             'realized_losses': realized_losses,
             'tax_savings_estimate': realized_losses * -0.30,  # Assuming 30% tax rate
-            'num_transactions': len(self.portfolio.get_transaction_history())
-            
+            'num_transactions': len(self.portfolio.get_transaction_history()),
+            'long_term_realized_losses': self.portfolio.long_term_realized_losses,
+            'short_term_realized_losses': self.portfolio.short_term_realized_losses,
+            'long_term_realized_gains': self.portfolio.long_term_realized_gains,
+            'short_term_realized_gains': self.portfolio.short_term_realized_gains
         }
-        
+        print("Realized Gains total:")
+        print(sum(t.get('gain_loss', 0) for t in sell_transactions if t.get('gain_loss', 0) > 0))
         return self.performance_metrics
 
 # Helper function for rebalancing to keep the class interface clean

@@ -2,6 +2,7 @@ import pandas as pd
 
 # Import the Porftolio Model
 from models.portfolio import Portfolio
+from utils.reporting import record_gains_losses
 
 def track_and_manage_positions(portfolio: Portfolio, prices, date, transactions, sell_trigger):
     """
@@ -44,11 +45,15 @@ def track_and_manage_positions(portfolio: Portfolio, prices, date, transactions,
                 
                 # Update portfolio
                 holding['shares'] = round(holding['shares'] - investment['shares'], 4)
-                sale_proceeds = round(investment['shares'] * current_price,2)
+                sale_proceeds = round(investment['shares'] * current_price, 2)
                 portfolio.cash += sale_proceeds
                 
                 # Calculate loss for reporting
                 realized_loss = sale_proceeds - investment['cost']
+
+                # Keep records of my gains and losses.
+                record_gains_losses(realized_loss, investment['days_held'], portfolio)
+
                 # Record transaction
                 transactions.append({
                     'date': date,

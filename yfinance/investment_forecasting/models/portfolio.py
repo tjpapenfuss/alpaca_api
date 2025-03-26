@@ -41,8 +41,10 @@ class Portfolio:
         self.initial_investment = 0
         self.total_deposits = 0
         self.total_withdrawals = 0
-        self.realized_gains = 0
-        self.realized_losses = 0
+        self.long_term_realized_gains = 0
+        self.short_term_realized_gains = 0
+        self.long_term_realized_losses = 0
+        self.short_term_realized_losses = 0
         self.tax_loss_harvesting_savings = 0
         
         # Risk metrics
@@ -199,6 +201,8 @@ class Portfolio:
             current_drawdown = ((portfolio_value / peak_value) - 1) * 100
             self.max_drawdown = min(self.max_drawdown, current_drawdown)
         
+        gains_losses = self.long_term_realized_gains + self.short_term_realized_gains + \
+                       self.long_term_realized_losses + self.short_term_realized_losses,
         # Append to history
         self.portfolio_history.append({
             'date': closest_date,
@@ -207,7 +211,7 @@ class Portfolio:
             'total_value': portfolio_value,
             'daily_return': daily_return,
             'cash_allocation': (self.cash / portfolio_value * 100) if portfolio_value > 0 else 0,
-            'realized_gains_losses': self.realized_gains + self.realized_losses,
+            'realized_gains_losses': gains_losses,
             'max_drawdown': self.max_drawdown
         })
         
@@ -339,8 +343,10 @@ class Portfolio:
             'sharpe_ratio': sharpe_ratio,
             'volatility': volatility,
             'max_drawdown': self.max_drawdown,
-            'realized_gains': self.realized_gains,
-            'realized_losses': self.realized_losses,
+            'long_term_realized_gains': self.long_term_realized_gains,
+            'short_term_realized_gains': self.short_term_realized_gains,
+            'short_term_realized_losses': self.short_term_realized_losses,
+            'long_term_realized_losses': self.long_term_realized_losses,
             'tax_loss_harvesting_savings': self.tax_loss_harvesting_savings
         }
     
