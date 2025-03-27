@@ -40,7 +40,7 @@ def run_investment_simulation(config_file=None, config_dict=None, simulation='to
     
     # Create model and run simulation
     model = InvestmentForecastingModel(config)
-    if simulation is not 'spy_sim':
+    if simulation != 'spy_sim':
         results = model.run_simulation()
     else:
         results = model.spy_simulation()

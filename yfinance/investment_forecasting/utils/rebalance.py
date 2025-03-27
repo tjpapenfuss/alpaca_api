@@ -19,7 +19,7 @@ def perform_rebalance(portfolio: Portfolio, prices, date, transactions, excluded
     
     for ticker, holding in portfolio.holdings.items():
         if ticker in date_prices and not pd.isna(date_prices[ticker]):
-            current_values[ticker] = holding['shares'] * date_prices[ticker]
+            current_values[ticker] = holding['shares_remaining'] * date_prices[ticker]
     
     # Adjust target allocation to exclude recently sold tickers (to avoid wash sales)
     adjusted_target = target_allocation.copy()
@@ -41,7 +41,7 @@ def perform_rebalance(portfolio: Portfolio, prices, date, transactions, excluded
         if ticker not in target_values:
             if ticker not in excluded_tickers:
                 # Completely sell positions that are no longer in target allocation
-                sell_position(portfolio, ticker,portfolio.holdings[ticker]['shares'], 
+                sell_position(portfolio, ticker,portfolio.holdings[ticker]['shares_remaining'], 
                                 date_prices[ticker], date, transactions, "Rebalancing - Sell")
         elif current_value > target_values[ticker] * 1.02:  # Allow 2% buffer to reduce unnecessary trading
             # Sell partial position to reach target
@@ -125,8 +125,8 @@ def check_and_rebalance(portfolio: Portfolio, prices, investment_date, closest_t
         current_allocation = {}
         
         for ticker, holding in portfolio.holdings.items():
-            if ticker in date_prices and not pd.isna(date_prices[ticker]) and holding['shares'] > 0:
-                current_value = holding['shares'] * date_prices[ticker]
+            if ticker in date_prices and not pd.isna(date_prices[ticker]) and holding['shares_remaining'] > 0:
+                current_value = holding['shares_remaining'] * date_prices[ticker]
                 current_allocation[ticker] = current_value / total_value * 100
         
         # Get target allocation

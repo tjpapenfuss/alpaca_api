@@ -73,27 +73,27 @@ def plot_gains_losses(monthly_summary):
     
     # Plot short-term gains
     plt.bar(monthly_summary.index.astype(str), 
-            monthly_summary['Short-term-gain'], 
+            abs(monthly_summary['Short-term-gain']), 
             label='Short-term-gains', 
             color='red', 
             alpha=0.7)
     # Plot short-term Loss
     plt.bar(monthly_summary.index.astype(str), 
-            monthly_summary['Short-term-loss'], 
+            abs(monthly_summary['Short-term-loss']), 
             bottom=monthly_summary['Short-term-gain'], 
             label='Short-term-losses', 
             color='Green', 
             alpha=0.7)
     # Plot long-term gains
     plt.bar(monthly_summary.index.astype(str), 
-            monthly_summary['Long-term-gain'], 
+            abs(monthly_summary['Long-term-gain']), 
             bottom=monthly_summary['Short-term-loss'], 
             label='Long-term-gains', 
             color='Pink', 
             alpha=0.7)
     # Plot long-term Loss
     plt.bar(monthly_summary.index.astype(str), 
-            monthly_summary['Long-term-loss'], 
+            abs(monthly_summary['Long-term-loss']), 
             bottom=monthly_summary['Long-term-gain'], 
             label='Long-term-losses', 
             color='Blue', 

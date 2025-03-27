@@ -65,7 +65,8 @@ class Portfolio:
         """
         self.holdings = {ticker: 
             {
-                'shares': 0, 
+                'initial_shares_purchased': 0, 
+                'shares_remaining': 0,
                 'cost_basis': 0, 
                 'investments': [], 
                 'current_value': 0,
@@ -147,7 +148,7 @@ class Portfolio:
         for ticker, holding in self.holdings.items():
             if ticker in date_prices and not pd.isna(date_prices[ticker]):
                 price = date_prices[ticker]
-                current_value = holding['shares'] * price
+                current_value = holding['shares_remaining'] * price
                 
                 # Update holding information
                 holding['current_price'] = price
@@ -155,10 +156,10 @@ class Portfolio:
                 holding['last_update_date'] = date
                 
                 # Calculate unrealized gain/loss
-                if holding['cost_basis'] > 0 and holding['shares'] > 0:
-                    holding['unrealized_gain_loss'] = current_value - (holding['cost_basis'] * holding['shares'])
+                if holding['cost_basis'] > 0 and holding['shares_remaining'] > 0:
+                    holding['unrealized_gain_loss'] = current_value - (holding['cost_basis'] * holding['shares_remaining'])
                     holding['unrealized_gain_loss_pct'] = (holding['unrealized_gain_loss'] / 
-                                                          (holding['cost_basis'] * holding['shares'])) * 100
+                                                          (holding['cost_basis'] * holding['shares_remaining'])) * 100
                 
                 total_holdings_value += current_value
         

@@ -7,7 +7,7 @@
     "end_date": "2022-01-01",
     "sell_trigger": -10,
     "tickers_source": "/Users/tannerpapenfuss/finance_testing/alpaca_api/yfinance/investment_forecasting/sp500_companies.csv", 
-    "top_n": 250,
+    "top_n": 50,
     "rebalance_frequency":"quarterly",
     "rebalance_threshold":50,
     "pickle_file":"/Users/tannerpapenfuss/finance_testing/alpaca_api/yfinance/investment_forecasting/pickle_files/top-250-20-22.pkl"
