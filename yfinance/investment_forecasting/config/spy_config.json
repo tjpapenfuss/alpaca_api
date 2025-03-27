@@ -1,0 +1,14 @@
+{
+    "initial_investment": 100000,
+    "recurring_investment": 3000,
+    "investment_frequency": "monthly",
+    "portfolio_allocation": "CSV",
+    "start_date": "2020-01-01",
+    "end_date": "2022-01-01",
+    "sell_trigger": -10,
+    "tickers_source": "/Users/tannerpapenfuss/finance_testing/alpaca_api/yfinance/investment_forecasting/SPY.csv", 
+    "top_n": 1,
+    "rebalance_frequency":"yearly",
+    "rebalance_threshold":50,
+    "pickle_file":"/Users/tannerpapenfuss/finance_testing/alpaca_api/yfinance/investment_forecasting/pickle_files/spy-20-22.pkl"
+}

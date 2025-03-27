@@ -20,7 +20,11 @@ This model is especially useful for analyzing the benefits of tax-loss harvestin
 investment_forecast/
 ├── config/          # Configuration management
 ├── models/          # Core simulation models
+├── output/          # Output files from most recent run of main.py investment forcasting.
+├── pickle_files/    # Sample outputs from yfinance to limit calling yfinance too many times. 
+├── reporting/       # Helper files to create visuals for reporting on model runs
 ├── strategies/      # Investment strategies implementation
+├── test_cases/      # House all test cases. Currently tests are located in portfolio_test.py
 └── utils/           # Helper utilities
 ```
 

@@ -121,6 +121,61 @@ class InvestmentForecastingModel:
         )
         return self.investment_dates
         
+    def spy_simulation(self):
+        """
+        Run the investment simulation for SPY
+        
+        Returns:
+        --------
+        dict
+            Simulation results including portfolio data, transactions, and performance metrics
+        """
+        # Generate investment dates
+        self.get_investment_dates() 
+        
+        # Download historical stock data
+        valid_tickers, self.stock_data = download_stock_data(
+            self.tickers, 
+            self.start_date, 
+            self.end_date,
+            pickle_file=self.pickle_file # TAKE THIS OUT IF YOU DON'T WANT TO USE THE PICKLE!!
+        )
+        if not valid_tickers:
+            print("No valid tickers. Exiting simulation.")
+            return None
+            
+        # Extract adjusted close prices for analysis
+        self.prices_df = self._extract_price_data()
+        if self.prices_df is None:
+            return None
+        
+        # Ensure all dates are datetime
+        self.prices_df.index = pd.to_datetime(self.prices_df.index)
+
+        # Initialize portfolio with valid tickers
+        self.portfolio.initialize_holdings(valid_tickers)
+        
+        # Make initial investment
+        initial_date = self.investment_dates[0]
+        self._make_initial_investment(initial_date)
+        
+        # Process each investment date
+        self._process_investment_dates()
+        
+        # Calculate performance metrics
+        self.calculate_performance_metrics()
+        
+        # Export portfolio data to DataFrames
+        holdings_df, history_df, transactions_df = self.portfolio.export_to_dataframe()
+        
+        # Return simulation results
+        return {
+            'portfolio': holdings_df,
+            'transactions': transactions_df,
+            'portfolio_history': history_df,
+            'performance_metrics': self.performance_metrics
+        }
+    
     def run_simulation(self):
         """
         Run the investment simulation based on configuration.
