@@ -131,13 +131,14 @@ def sell_position(portfolio: Portfolio, ticker, shares_to_sell, price, date, tra
             sold_shares = investment['shares']
             investment['sold'] = True
             remaining_to_sell -= sold_shares
-            desc = f'Sell of {investment["shares"]} shares of {ticker} purchased on {investment['date']} for {description}'
+            desc = f'Sell of {investment["shares"]} shares of {ticker} purchased on __Insert Later__ for {description}'
         else:
             # Sell partial investment
             sold_shares = remaining_to_sell
             investment['shares'] = round(investment['shares'] - sold_shares, 4) 
             remaining_to_sell = 0
-            desc = f'Partial sell of {sold_shares} shares of {ticker} purchased on {investment['date']} for {description}'
+            desc = f'Partial sell of {sold_shares} shares of {ticker} purchased on __Insert Later__ for {description}'
+            # desc = f'Partial sell of {sold_shares} shares of {ticker} purchased on {investment['date']} for {description}'
         
         # Calculate gain/loss for this lot
         lot_proceeds = sold_shares * price

@@ -6,8 +6,9 @@
     "start_date": "2020-01-01",
     "end_date": "2022-01-01",
     "sell_trigger": -10,
-    "tickers_source": "/home/tanner/Desktop/finance_test/alpaca_api/yfinance/investment_forecasting/sp500_companies.csv", 
+    "tickers_source": "/Users/tannerpapenfuss/finance_testing/alpaca_api/yfinance/investment_forecasting/sp500_companies.csv", 
     "top_n": 50,
     "rebalance_frequency":"quarterly",
-    "rebalance_threshold":50
+    "rebalance_threshold":50,
+    "pickle_file":"/Users/tannerpapenfuss/finance_testing/alpaca_api/yfinance/investment_forecasting/top-50-20-22.pkl"
 }

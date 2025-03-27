@@ -36,6 +36,7 @@ class InvestmentForecastingModel:
         self.sell_trigger = config.get('sell_trigger', DEFAULT_CONFIG['sell_trigger'])
         self.top_n = config.get('top_n', DEFAULT_CONFIG['top_n'])
         self.tickers_source = config.get('tickers_source', DEFAULT_CONFIG['tickers_source'])
+        self.pickle_file = config.get('pickle_file', None)
         
         # Rebalancing variables
         self.rebalance_frequency = config.get('rebalance_frequency', 'quarterly')
@@ -136,7 +137,8 @@ class InvestmentForecastingModel:
         valid_tickers, self.stock_data = download_stock_data(
             self.tickers, 
             self.start_date, 
-            self.end_date
+            self.end_date,
+            pickle_file=self.pickle_file # TAKE THIS OUT IF YOU DON'T WANT TO USE THE PICKLE!!
         )
 
         if not valid_tickers:

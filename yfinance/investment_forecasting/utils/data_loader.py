@@ -3,7 +3,7 @@ from utils.date_utils import get_closest_trading_day
 import pandas as pd
 from datetime import datetime, timedelta
 
-def download_stock_data(tickers, start_date, end_date):
+def download_stock_data(tickers, start_date, end_date, pickle_file=None):
     """
     Download daily stock price data for the specified tickers and date range.
     """
@@ -12,13 +12,16 @@ def download_stock_data(tickers, start_date, end_date):
     start_buffer = datetime.strptime(start_date, '%Y-%m-%d') - timedelta(days=5)
     
     try:
-        stock_data = yf.download(
-            tickers=tickers, 
-            start=start_buffer.strftime('%Y-%m-%d'), 
-            end=end_date, 
-            interval="1d", 
-            group_by='ticker'
-        )
+        if(pickle_file is not None):
+            stock_data = pd.read_pickle(pickle_file)
+        else:
+            stock_data = yf.download(
+                tickers=tickers, 
+                start=start_buffer.strftime('%Y-%m-%d'), 
+                end=end_date, 
+                interval="1d", 
+                group_by='ticker'
+            )
         
         # Handle failed tickers
         valid_tickers = [ticker for ticker in tickers if ticker in stock_data.columns.levels[0]]
