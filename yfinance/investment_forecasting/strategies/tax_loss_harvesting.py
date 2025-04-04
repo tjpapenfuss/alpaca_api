@@ -27,7 +27,10 @@ def track_and_manage_positions(portfolio: Portfolio, prices, date, transactions,
         for investment in holding['investments']:
             if investment['sold']:
                 continue
-                
+            if investment['shares_remaining'] == 0:
+                print("There are no shares remaining...")
+                continue
+            
             # Calculate actual days held based on current date
             purchase_date = pd.to_datetime(investment['date'])
             
@@ -50,12 +53,13 @@ def track_and_manage_positions(portfolio: Portfolio, prices, date, transactions,
                 investment['sold'] = True
                 
                 # Update portfolio
-                holding['shares_remaining'] = round(holding['shares_remaining'] - investment['shares_remaining'], 4)
                 sale_proceeds = round(investment['shares_remaining'] * current_price, 2)
+                sold_shares = investment['shares_remaining']
+                investment['shares_remaining'] = 0 # Sell all shares 
                 portfolio.cash += sale_proceeds
                 
                 # Calculate loss for reporting
-                realized_loss = sale_proceeds - investment_cost_prorated
+                realized_loss = round(sale_proceeds - investment_cost_prorated, 2)
 
                 # Keep records of my gains and losses.
                 record_gains_losses(realized_loss, investment['days_held'], portfolio)
@@ -65,13 +69,13 @@ def track_and_manage_positions(portfolio: Portfolio, prices, date, transactions,
                     'date': date,
                     'type': 'sell',
                     'ticker': ticker,
-                    'shares': investment['shares_remaining'],
+                    'shares': sold_shares,
                     'price': current_price,
                     'amount': sale_proceeds,
                     'gain_loss': realized_loss,
                     'gain_loss_pct': investment['return_pct'],
                     'days_held': investment['days_held'],
-                    'description': f'Sold {investment["shares_remaining"]} shares of {ticker} for tax-loss harvesting'
+                    'description': f'Sold {sold_shares} shares of {ticker} for tax-loss harvesting'
                 })
                 ticker_sold = True
         

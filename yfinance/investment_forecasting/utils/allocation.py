@@ -83,46 +83,5 @@ def invest_available_cash(portfolio: Portfolio, allocation_weights, prices, date
         if shares_to_buy >= 0.01:
             # Call to buy position function
             buy_position(portfolio, ticker, shares_to_buy, price, date, transactions, f'Bought {shares_to_buy} shares of {ticker}')
-            # # Initialize holdings for this ticker if it doesn't exist
-            # if ticker not in portfolio.holdings:
-            #     portfolio.holdings[ticker] = {
-            #         'shares': 0,
-            #         'investments': [],
-            #         'cost_basis': 0
-            #     }
             
-            # # Update portfolio
-            # portfolio.holdings[ticker]['shares'] += shares_to_buy
-            
-            # # Track this specific investment separately for tax-loss harvesting
-            # purchase_record = {
-            #     'date': date,
-            #     'shares': shares_to_buy,
-            #     'price': price,
-            #     'cost': actual_investment,
-            #     'current_value': actual_investment,
-            #     'return_pct': 0,
-            #     'days_held': 0,
-            #     'sold': False
-            # }
-            # portfolio.holdings[ticker]['investments'].append(purchase_record)
-                
-            # # Update average cost basis
-            # total_shares = portfolio.holdings[ticker]['shares']
-            # current_basis = portfolio.holdings[ticker]['cost_basis']
-            # new_basis = (current_basis * (total_shares - shares_to_buy) + actual_investment) / total_shares
-            # portfolio.holdings[ticker]['cost_basis'] = new_basis
-            
-            # # Update cash and record transaction
-            # portfolio.cash -= actual_investment
-            # # print(self.cash)
-            # transactions.append({
-            #     'date': date,
-            #     'type': 'buy',
-            #     'ticker': ticker,
-            #     'shares': shares_to_buy,
-            #     'price': price,
-            #     'amount': actual_investment,
-            #     'description': f'Bought {shares_to_buy} shares of {ticker}'
-            # })
     return transactions

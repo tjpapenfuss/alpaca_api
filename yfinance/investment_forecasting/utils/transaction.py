@@ -36,7 +36,7 @@ def buy_position(portfolio: Portfolio, ticker, shares_to_buy, price, date, trans
                 'investments': [],
                 'cost_basis': 0
             }
-            
+
         # Update portfolio
         portfolio.holdings[ticker]['initial_shares_purchased'] += shares_to_buy
         portfolio.holdings[ticker]['shares_remaining'] += shares_to_buy
@@ -106,8 +106,9 @@ def sell_position(portfolio: Portfolio, ticker, shares_to_sell, price, date, tra
     days_held_weighted = 0
     
     if ticker not in portfolio.holdings:
+        print("FAILED. Ticker not in holdings.")
         return None
-        
+    
     # Find non-sold investments for this ticker
     active_investments = [inv for inv in portfolio.holdings[ticker]['investments'] if not inv['sold']]
     
@@ -128,24 +129,25 @@ def sell_position(portfolio: Portfolio, ticker, shares_to_sell, price, date, tra
         if remaining_to_sell <= 0:
             break
         #invest_shares = investment['shares']
+        date_purchased = investment['date']
         if investment['shares_remaining'] <= remaining_to_sell:
             # Sell entire investment
             sold_shares = investment['shares_remaining']
             investment['sold'] = True
             remaining_to_sell -= sold_shares
-            desc = f'Sell of {sold_shares} shares of {ticker} purchased on __Insert Later__ for {description}'
+            desc = f'Sell of {sold_shares} shares of {ticker} purchased on {date_purchased} for {description}'
         else:
             # Sell partial investment
-            sold_shares = remaining_to_sell
+            sold_shares = round(remaining_to_sell, 2)
             investment['shares_remaining'] = round(investment['shares_remaining'] - sold_shares, 4) 
             remaining_to_sell = 0
-            desc = f'Partial sell of {sold_shares} shares of {ticker} purchased on __Insert Later__ for {description}'
+            desc = f'Partial sell of {sold_shares} shares of {ticker} purchased on {date_purchased} for {description}'
             # desc = f'Partial sell of {sold_shares} shares of {ticker} purchased on {investment['date']} for {description}'
         
         # Calculate gain/loss for this lot
         lot_proceeds = round(sold_shares * price, 2)
-        lot_cost = round(sold_shares * investment['price'], 2)
-        lot_gain_loss = lot_proceeds - lot_cost
+        lot_cost = sold_shares * investment['price']
+        lot_gain_loss = round(lot_proceeds - lot_cost, 2)
         transactions.append({
                 'date': date,
                 'type': 'sell',
@@ -175,30 +177,6 @@ def sell_position(portfolio: Portfolio, ticker, shares_to_sell, price, date, tra
     if actual_shares_sold > 0:
         portfolio.holdings[ticker]['shares_remaining'] -= actual_shares_sold
         portfolio.cash += sale_proceeds
-        # # Calculate percentage gain/loss
-        # if total_cost > 0:
-        #     gain_loss_pct = (realized_gain_loss / total_cost) * 100
-        # else:
-        #     gain_loss_pct = 0
-        
-        # # Use weighted average days held or default to 0
-        # avg_days_held = round(days_held_weighted) if days_held_weighted > 0 else 0
-        
-        # # Record transaction
-        # transaction = {
-        #     'date': date,
-        #     'type': 'sell',
-        #     'ticker': ticker,
-        #     'shares': actual_shares_sold,
-        #     'price': price,
-        #     'amount': sale_proceeds,
-        #     'gain_loss': realized_gain_loss,
-        #     'gain_loss_pct': gain_loss_pct,
-        #     'days_held': avg_days_held,
-        #     'description': description
-        # }
-        
-        # transactions.append(transaction)
         return transactions
         
     return None
