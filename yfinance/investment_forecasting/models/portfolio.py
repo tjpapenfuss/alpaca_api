@@ -3,7 +3,7 @@ import numpy as np
 from datetime import datetime, timedelta
 
 class Portfolio:
-    def __init__(self, rebalance_frequency, rebalance_threshold, portfolio_allocation, tickers, name="Default Portfolio"):
+    def __init__(self, rebalance_frequency, rebalance_threshold, portfolio_allocation, last_rebalance_date, tickers, name="Default Portfolio"):
         """
         Initialize a portfolio with configuration settings and initial tickers.
         
@@ -30,7 +30,7 @@ class Portfolio:
         self.rebalance_frequency = rebalance_frequency
         self.rebalance_threshold = rebalance_threshold
         self.portfolio_allocation = portfolio_allocation
-        self.last_rebalance_date = None
+        self.last_rebalance_date = last_rebalance_date
         
         # Storage for portfolio data
         self.holdings = {}

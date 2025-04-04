@@ -70,8 +70,7 @@ def perform_rebalance(portfolio: Portfolio, prices, date, transactions, excluded
                     if shares_to_buy >= 0.01 and amount_to_buy > 10:  # Minimum purchase
                         buy_position(portfolio, ticker, shares_to_buy, 
                                         date_prices[ticker], date, transactions, "Rebalancing - Add")
-                                        
-# Need to repurpose this and put this in the portfolio class as a rebalance portfolio method.
+
 def check_and_rebalance(portfolio: Portfolio, prices, investment_date, closest_trading_date, start_date, 
     transactions, sold_tickers=None):
     """
@@ -96,25 +95,19 @@ def check_and_rebalance(portfolio: Portfolio, prices, investment_date, closest_t
     should_rebalance_time = False
     current_date = pd.to_datetime(investment_date)
     
-    if portfolio.last_rebalance_date is None:
-        # First rebalance should be at least 3 months after start
-        first_date = pd.to_datetime(start_date)
-        if (current_date - first_date).days >= 90:  # At least 90 days after start
-            should_rebalance_time = True
-    else:
-        last_rebalance = pd.to_datetime(portfolio.last_rebalance_date)
-        if portfolio.rebalance_frequency == 'monthly':
-            should_rebalance_time = (current_date.year > last_rebalance.year or 
-                                    (current_date.year == last_rebalance.year and 
-                                    current_date.month > last_rebalance.month))
-        elif portfolio.rebalance_frequency == 'quarterly':
-            curr_quarter = (current_date.month - 1) // 3 + 1
-            last_quarter = (last_rebalance.month - 1) // 3 + 1
-            should_rebalance_time = (current_date.year > last_rebalance.year or 
-                                    (current_date.year == last_rebalance.year and 
-                                    curr_quarter > last_quarter))
-        elif portfolio.rebalance_frequency == 'yearly':
-            should_rebalance_time = current_date.year > last_rebalance.year
+    last_rebalance = pd.to_datetime(portfolio.last_rebalance_date)
+    if portfolio.rebalance_frequency == 'monthly':
+        should_rebalance_time = (current_date.year > last_rebalance.year or 
+                                (current_date.year == last_rebalance.year and 
+                                current_date.month > last_rebalance.month))
+    elif portfolio.rebalance_frequency == 'quarterly':
+        curr_quarter = (current_date.month - 1) // 3 + 1
+        last_quarter = (last_rebalance.month - 1) // 3 + 1
+        should_rebalance_time = (current_date.year > last_rebalance.year or 
+                                (current_date.year == last_rebalance.year and 
+                                curr_quarter > last_quarter))
+    elif portfolio.rebalance_frequency == 'yearly':
+        should_rebalance_time = current_date.year > last_rebalance.year
             
     # If not time to rebalance, check drift threshold
     if not should_rebalance_time:

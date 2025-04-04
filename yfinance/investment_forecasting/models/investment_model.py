@@ -66,6 +66,7 @@ class InvestmentForecastingModel:
             rebalance_frequency=self.rebalance_frequency, 
             rebalance_threshold=self.rebalance_threshold,
             portfolio_allocation=self.portfolio_allocation,
+            last_rebalance_date = self.start_date,
             tickers=self.tickers,
             name=config.get('portfolio_name', 'Simulation Portfolio')
         )
