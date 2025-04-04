@@ -28,7 +28,7 @@ def track_and_manage_positions(portfolio: Portfolio, prices, date, transactions,
             if investment['sold']:
                 continue
             if investment['shares_remaining'] == 0:
-                print("There are no shares remaining...")
+                print(f"There are no shares remaining...{investment} + ")
                 continue
             
             # Calculate actual days held based on current date

@@ -20,7 +20,9 @@ def perform_rebalance(portfolio: Portfolio, prices, date, transactions, excluded
     for ticker, holding in portfolio.holdings.items():
         if ticker in date_prices and not pd.isna(date_prices[ticker]):
             current_values[ticker] = holding['shares_remaining'] * date_prices[ticker]
-    
+
+    if excluded_tickers is None:
+        excluded_tickers = []
     # Adjust target allocation to exclude recently sold tickers (to avoid wash sales)
     adjusted_target = target_allocation.copy()
     for ticker in excluded_tickers:
@@ -71,8 +73,9 @@ def perform_rebalance(portfolio: Portfolio, prices, date, transactions, excluded
                         buy_position(portfolio, ticker, shares_to_buy, 
                                         date_prices[ticker], date, transactions, "Rebalancing - Add")
 
-def check_and_rebalance(portfolio: Portfolio, prices, investment_date, closest_trading_date, start_date, 
-    transactions, sold_tickers=None):
+# def is_rebalancing_needed(portfolio: Portfolio, prices, investment_date, closest_trading_date, start_date, 
+#     transactions, sold_tickers=None):
+def is_rebalancing_needed(portfolio: Portfolio, investment_date):
     """
     Check if portfolio needs rebalancing and perform rebalancing if necessary.
     
@@ -83,8 +86,8 @@ def check_and_rebalance(portfolio: Portfolio, prices, investment_date, closest_t
         transactions: List to record transactions
         sold_tickers: List of tickers that were recently sold (to avoid wash sales)
     """
-    if sold_tickers is None:
-        sold_tickers = []
+    # if sold_tickers is None:
+    #     sold_tickers = []
     
     # Skip if no holdings or not enough history
     if not portfolio.holdings:
@@ -108,36 +111,40 @@ def check_and_rebalance(portfolio: Portfolio, prices, investment_date, closest_t
                                 curr_quarter > last_quarter))
     elif portfolio.rebalance_frequency == 'yearly':
         should_rebalance_time = current_date.year > last_rebalance.year
-            
+    
+    if should_rebalance_time is True:
+        portfolio.last_rebalance_date = investment_date
+    return should_rebalance_time
     # If not time to rebalance, check drift threshold
-    if not should_rebalance_time:
-        # Calculate current allocation vs target allocation
-        # Here we use closest trading date to make sure we are getting a date where stocks were traded. 
-        date_prices = prices.loc[closest_trading_date]
-        total_value = portfolio.calculate_total_value(prices, closest_trading_date)
-        current_allocation = {}
+    # Taking out drift for now. 
+    # if not should_rebalance_time:
+    #     # Calculate current allocation vs target allocation
+    #     # Here we use closest trading date to make sure we are getting a date where stocks were traded. 
+    #     date_prices = prices.loc[closest_trading_date]
+    #     total_value = portfolio.calculate_total_value(prices, closest_trading_date)
+    #     current_allocation = {}
         
-        for ticker, holding in portfolio.holdings.items():
-            if ticker in date_prices and not pd.isna(date_prices[ticker]) and holding['shares_remaining'] > 0:
-                current_value = holding['shares_remaining'] * date_prices[ticker]
-                current_allocation[ticker] = current_value / total_value * 100
+    #     for ticker, holding in portfolio.holdings.items():
+    #         if ticker in date_prices and not pd.isna(date_prices[ticker]) and holding['shares_remaining'] > 0:
+    #             current_value = holding['shares_remaining'] * date_prices[ticker]
+    #             current_allocation[ticker] = current_value / total_value * 100
         
-        # Get target allocation
-        target_allocation = calculate_allocation_weights(portfolio=portfolio)
-        target_allocation = {k: v * 100 for k, v in target_allocation.items()}
+    #     # Get target allocation
+    #     target_allocation = calculate_allocation_weights(portfolio=portfolio)
+    #     target_allocation = {k: v * 100 for k, v in target_allocation.items()}
         
-        # Calculate maximum drift
-        max_drift = 0
-        for ticker, target_pct in target_allocation.items():
-            if ticker in current_allocation:
-                drift = abs(current_allocation[ticker] - target_pct)
-                max_drift = max(max_drift, drift)
+    #     # Calculate maximum drift
+    #     max_drift = 0
+    #     for ticker, target_pct in target_allocation.items():
+    #         if ticker in current_allocation:
+    #             drift = abs(current_allocation[ticker] - target_pct)
+    #             max_drift = max(max_drift, drift)
         
-        should_rebalance_drift = max_drift > portfolio.rebalance_threshold
-    else:
-        should_rebalance_drift = False
+    #     should_rebalance_drift = max_drift > portfolio.rebalance_threshold
+    # else:
+    #     should_rebalance_drift = False
         
     # Perform rebalancing if needed
-    if should_rebalance_time or should_rebalance_drift:
-        perform_rebalance(portfolio, prices, closest_trading_date, transactions, sold_tickers)
-        portfolio.last_rebalance_date = closest_trading_date
+    # if should_rebalance_time or should_rebalance_drift:
+    #     perform_rebalance(portfolio, prices, closest_trading_date, transactions, sold_tickers)
+    #     portfolio.last_rebalance_date = closest_trading_date

@@ -139,7 +139,9 @@ def sell_position(portfolio: Portfolio, ticker, shares_to_sell, price, date, tra
         else:
             # Sell partial investment
             sold_shares = round(remaining_to_sell, 2)
-            investment['shares_remaining'] = round(investment['shares_remaining'] - sold_shares, 4) 
+            investment['shares_remaining'] = round(investment['shares_remaining'] - sold_shares, 4)
+            if(investment['shares_remaining'] == 0):
+                investment['sold'] = True
             remaining_to_sell = 0
             desc = f'Partial sell of {sold_shares} shares of {ticker} purchased on {date_purchased} for {description}'
             # desc = f'Partial sell of {sold_shares} shares of {ticker} purchased on {investment['date']} for {description}'

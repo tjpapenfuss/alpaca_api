@@ -9,6 +9,7 @@ from utils.reporting import generate_report, plot_portfolio_growth, export_resul
 from models.portfolio import Portfolio
 from strategies.tax_loss_harvesting import track_and_manage_positions
 from utils.allocation import invest_available_cash, calculate_allocation_weights
+from utils.rebalance import is_rebalancing_needed, perform_rebalance
 
 class InvestmentForecastingModel:
     def __init__(self, config=None):
@@ -310,36 +311,44 @@ class InvestmentForecastingModel:
         """
         # Calculate target allocation weights
         allocation_weights = calculate_allocation_weights(self.portfolio)
-        
-        # 1. Track and manage positions - tax-loss harvesting
         transactions = self.portfolio.get_transaction_history()
-        transactions, sold_tickers = track_and_manage_positions(
-            self.portfolio, 
-            self.prices_df, 
-            closest_date, 
-            transactions, 
-            self.sell_trigger
+
+        # 1. Check if it's time to rebalance
+        rebalancing_needed = is_rebalancing_needed(
+            portfolio=self.portfolio,
+            investment_date=investment_date
         )
-        
-        # 2. Invest available cash according to allocation
-        invest_available_cash(
-            self.portfolio, 
-            allocation_weights, 
-            self.prices_df, 
-            closest_date, 
-            transactions, 
-            excluded_tickers=sold_tickers
-        )
-        
-        # 3. Check if rebalancing is needed and execute if necessary
-        rebalance_tickers(
-            portfolio=self.portfolio, 
-            prices=self.prices_df, 
-            investment_date=investment_date, 
-            closest_trading_date=closest_date, 
-            start_date=self.start_date, 
-            sold_tickers=sold_tickers
-        )
+
+        if rebalancing_needed:
+            # If rebalancing, handle it separately
+            perform_rebalance(
+                portfolio=self.portfolio, 
+                prices=self.prices_df, 
+                date=closest_date,
+                transactions=transactions,
+                excluded_tickers=None
+            )
+        else:
+            # Normal investment cycle
+            # 1. Track and manage positions - tax-loss harvesting
+            transactions = self.portfolio.get_transaction_history()
+            transactions, sold_tickers = track_and_manage_positions(
+                self.portfolio, 
+                self.prices_df, 
+                closest_date, 
+                transactions, 
+                self.sell_trigger
+            )
+            
+            # 2. Invest available cash according to allocation
+            invest_available_cash(
+                self.portfolio, 
+                allocation_weights, 
+                self.prices_df, 
+                closest_date, 
+                transactions, 
+                excluded_tickers=sold_tickers
+            )
         
     def calculate_performance_metrics(self):
         """
