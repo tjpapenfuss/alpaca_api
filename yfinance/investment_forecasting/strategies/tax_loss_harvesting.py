@@ -3,6 +3,7 @@ import pandas as pd
 # Import the Porftolio Model
 from models.portfolio import Portfolio
 from utils.reporting import record_gains_losses
+from utils.transaction import update_position
 
 def track_and_manage_positions(portfolio: Portfolio, prices, date, transactions, sell_trigger):
     """
@@ -28,25 +29,25 @@ def track_and_manage_positions(portfolio: Portfolio, prices, date, transactions,
             if investment['sold']:
                 continue
             if investment['shares_remaining'] == 0:
-                print(f"There are no shares remaining...{investment} + ")
+                print(f"There are no shares remaining of investment: {investment}")
                 continue
             
-            # Calculate actual days held based on current date
-            purchase_date = pd.to_datetime(investment['date'])
+            update_position(investment=investment, date=date, current_price=current_price)
+            # # Calculate actual days held based on current date
+            # purchase_date = pd.to_datetime(investment['date'])
             
-            # Update days held correctly - calculate the actual days passed
-            investment['days_held'] = (current_date - purchase_date).days
-            # Don't need prev value just the investment cost
-            # previous_value = investment['current_value'] 
-            current_value = round(investment['shares_remaining'] * current_price, 2)
-            investment['current_value'] = current_value
-            # Because we might have sold some shares for a specific lot, we must get the prorated 
-            # cost for a particular investment. Ex. Initially purchased 20 shares at $10. I sold 
-            # 10 shares. New price is $12/share. My current value is $120. My return percentage is
-            # $120 / ($200 * (10/20)) => $120/$100 => 120%
-            investment_cost_prorated = investment['cost'] * \
-                (investment['shares_remaining'] / investment['initial_shares_purchased'])
-            investment['return_pct'] = round(((current_value / investment_cost_prorated) - 1) * 100, 2)
+            # # Update days held correctly - calculate the actual days passed
+            # investment['days_held'] = (current_date - purchase_date).days
+            # # Don't need prev value just the investment cost
+            # # previous_value = investment['current_value'] 
+            # current_value = round(investment['shares_remaining'] * current_price, 2)
+            # investment['current_value'] = current_value
+            # # Because we might have sold some shares for a specific lot, we must get the prorated 
+            # # cost for a particular investment. Ex. Initially purchased 20 shares at $10. I sold 
+            # # 10 shares. New price is $12/share. My current value is $120. My return percentage is
+            # # $120 / ($200 * (10/20)) => $120/$100 => 120%
+            
+            # investment['return_pct'] = round(((current_value / investment_cost_prorated) - 1) * 100, 2)
             # Check if this specific investment meets the sell trigger
             if investment['return_pct'] <= sell_trigger:
                 # Sell this specific lot
@@ -59,6 +60,8 @@ def track_and_manage_positions(portfolio: Portfolio, prices, date, transactions,
                 portfolio.cash += sale_proceeds
                 
                 # Calculate loss for reporting
+                investment_cost_prorated = investment['cost'] * \
+                    (investment['shares_remaining'] / investment['initial_shares_purchased'])
                 realized_loss = round(sale_proceeds - investment_cost_prorated, 2)
 
                 # Keep records of my gains and losses.

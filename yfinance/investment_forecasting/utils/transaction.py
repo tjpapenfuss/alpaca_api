@@ -1,5 +1,6 @@
 from models.portfolio import Portfolio
 from utils.reporting import record_gains_losses
+import pandas as pd
 
 def buy_position(portfolio: Portfolio, ticker, shares_to_buy, price, date, transactions, description):
     """
@@ -130,6 +131,7 @@ def sell_position(portfolio: Portfolio, ticker, shares_to_sell, price, date, tra
             break
         #invest_shares = investment['shares']
         date_purchased = investment['date']
+        update_position(investment, date, price)
         if investment['shares_remaining'] <= remaining_to_sell:
             # Sell entire investment
             sold_shares = investment['shares_remaining']
@@ -182,3 +184,22 @@ def sell_position(portfolio: Portfolio, ticker, shares_to_sell, price, date, tra
         return transactions
         
     return None
+
+def update_position(investment, date, current_price):
+    current_date = pd.to_datetime(date)
+    # Calculate actual days held based on current date
+    purchase_date = pd.to_datetime(investment['date'])
+    
+    # Update days held correctly - calculate the actual days passed
+    investment['days_held'] = (current_date - purchase_date).days
+    # Don't need prev value just the investment cost
+    # previous_value = investment['current_value'] 
+    current_value = round(investment['shares_remaining'] * current_price, 2)
+    investment['current_value'] = current_value
+    # Because we might have sold some shares for a specific lot, we must get the prorated 
+    # cost for a particular investment. Ex. Initially purchased 20 shares at $10. I sold 
+    # 10 shares. New price is $12/share. My current value is $120. My return percentage is
+    # $120 / ($200 * (10/20)) => $120/$100 => 120%
+    investment_cost_prorated = investment['cost'] * \
+        (investment['shares_remaining'] / investment['initial_shares_purchased'])
+    investment['return_pct'] = round(((current_value / investment_cost_prorated) - 1) * 100, 2)
