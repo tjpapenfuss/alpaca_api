@@ -4,15 +4,15 @@ from utils.data_loader import extract_top_tickers_from_csv
 
 spy_data = yf.download(
                 tickers='SPY',
-                start='2018-01-01',
-                end='2025-04-01',
+                start='2019-01-01',
+                end='2025-04-02',
                 interval="1d",
                 group_by='ticker'
             )
 
-spy_data.to_pickle('spy-18-25.pkl')
+spy_data.to_pickle('spy-19-25.pkl')
 
-tickers_source='/Users/tannerpapenfuss/finance_testing/alpaca_api/yfinance/investment_forecasting/sp500_companies.csv'
+tickers_source='C:/Users/tjpap/sandbox/alpaca_api/yfinance/investment_forecasting/sp500_companies.csv'
 
 # Get tickers from configuration
 tickers = extract_top_tickers_from_csv(
@@ -22,10 +22,10 @@ tickers = extract_top_tickers_from_csv(
 
 ticker_50 = yf.download(
                 tickers=tickers,
-                start='2018-01-01',
-                end='2025-04-01',
+                start='2019-01-01',
+                end='2025-04-02',
                 interval="1d",
                 group_by='ticker'
             )
 
-ticker_50.to_pickle('top-500-18-25.pkl')
+ticker_50.to_pickle('top-500-19-25.pkl')

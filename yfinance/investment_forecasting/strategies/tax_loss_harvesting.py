@@ -3,7 +3,6 @@ import pandas as pd
 # Import the Porftolio Model
 from models.portfolio import Portfolio
 from utils.reporting import record_gains_losses
-from utils.transaction import update_position
 
 def track_and_manage_positions(portfolio: Portfolio, prices, date, transactions, sell_trigger):
     """
@@ -32,7 +31,7 @@ def track_and_manage_positions(portfolio: Portfolio, prices, date, transactions,
                 print(f"There are no shares remaining of investment: {investment}")
                 continue
             
-            update_position(investment=investment, date=date, current_price=current_price)
+            # update_position(investment=investment, date=date, current_price=current_price)
             # # Calculate actual days held based on current date
             # purchase_date = pd.to_datetime(investment['date'])
             
@@ -52,7 +51,8 @@ def track_and_manage_positions(portfolio: Portfolio, prices, date, transactions,
             if investment['return_pct'] <= sell_trigger:
                 # Sell this specific lot
                 investment['sold'] = True
-                
+                investment_cost_prorated = investment['cost'] * \
+                    (investment['shares_remaining'] / investment['initial_shares_purchased'])
                 # Update portfolio
                 sale_proceeds = round(investment['shares_remaining'] * current_price, 2)
                 sold_shares = investment['shares_remaining']
@@ -60,8 +60,6 @@ def track_and_manage_positions(portfolio: Portfolio, prices, date, transactions,
                 portfolio.cash += sale_proceeds
                 
                 # Calculate loss for reporting
-                investment_cost_prorated = investment['cost'] * \
-                    (investment['shares_remaining'] / investment['initial_shares_purchased'])
                 realized_loss = round(sale_proceeds - investment_cost_prorated, 2)
 
                 # Keep records of my gains and losses.

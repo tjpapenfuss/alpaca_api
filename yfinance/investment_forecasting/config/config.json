@@ -1,14 +1,14 @@
 {
     "initial_investment": 100000,
-    "recurring_investment": 3000,
+    "recurring_investment": 4000,
     "investment_frequency": "monthly",
-    "portfolio_allocation": "CSV",
-    "start_date": "2020-01-01",
-    "end_date": "2022-01-01",
+    "portfolio_allocation": "equal",
+    "start_date": "2019-01-01",
+    "end_date": "2025-04-01",
     "sell_trigger": -10,
-    "tickers_source": "/Users/tannerpapenfuss/finance_testing/alpaca_api/yfinance/investment_forecasting/sp500_companies.csv", 
-    "top_n": 50,
-    "rebalance_frequency":"quarterly",
+    "tickers_source": "C:/Users/tjpap/sandbox/alpaca_api/yfinance/investment_forecasting/sp500_companies.csv", 
+    "top_n": 500,
+    "rebalance_frequency":"yearly",
     "rebalance_threshold":50,
-    "pickle_file":"/Users/tannerpapenfuss/finance_testing/alpaca_api/yfinance/investment_forecasting/pickle_files/top-250-20-22.pkl"
+    "pickle_file":"C:/Users/tjpap/sandbox/alpaca_api/yfinance/investment_forecasting/pickle_files/top-500-19-25.pkl"
 }

@@ -4,7 +4,8 @@ import json
 from datetime import datetime
 from reporting.growth_viz import plot_results
 
-GLOBAL_FOLDER_LOCATION = "/Users/tannerpapenfuss/finance_testing/alpaca_api/yfinance/investment_forecasting/"
+# GLOBAL_FOLDER_LOCATION = "/Users/tannerpapenfuss/finance_testing/alpaca_api/yfinance/investment_forecasting/"
+GLOBAL_FOLDER_LOCATION = "C:/Users/tjpap/sandbox/alpaca_api/yfinance/investment_forecasting/"
 
 # Function to run a simulation from a configuration file
 def run_investment_simulation(config_file=None, config_dict=None, simulation='top_n'):

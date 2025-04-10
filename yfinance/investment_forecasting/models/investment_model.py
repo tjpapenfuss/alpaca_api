@@ -10,6 +10,7 @@ from models.portfolio import Portfolio
 from strategies.tax_loss_harvesting import track_and_manage_positions
 from utils.allocation import invest_available_cash, calculate_allocation_weights
 from utils.rebalance import is_rebalancing_needed, perform_rebalance
+from utils.transaction import update_positions
 
 class InvestmentForecastingModel:
     def __init__(self, config=None):
@@ -318,7 +319,7 @@ class InvestmentForecastingModel:
             portfolio=self.portfolio,
             investment_date=investment_date
         )
-
+        update_positions(portfolio=self.portfolio, prices=self.prices_df, date=closest_date)
         if rebalancing_needed:
             # If rebalancing, handle it separately
             perform_rebalance(

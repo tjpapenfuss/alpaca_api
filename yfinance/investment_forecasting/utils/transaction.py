@@ -26,7 +26,6 @@ def buy_position(portfolio: Portfolio, ticker, shares_to_buy, price, date, trans
     # Check if we have enough cash
     if actual_investment > portfolio.cash:
         shares_to_buy = portfolio.cash / price
-        shares_to_buy = round(shares_to_buy, 2)
         actual_investment = round(shares_to_buy * price, 2)
     
     if shares_to_buy > 0:
@@ -69,8 +68,8 @@ def buy_position(portfolio: Portfolio, ticker, shares_to_buy, price, date, trans
             'type': 'buy',
             'ticker': ticker,
             'shares': shares_to_buy,
-            'price': price,
-            'amount': actual_investment,
+            'price': price, 
+            'amount': actual_investment * -1, # Because this is a buy you deduct from your funds. 
             'description': description
         })
     return transactions
@@ -131,7 +130,6 @@ def sell_position(portfolio: Portfolio, ticker, shares_to_sell, price, date, tra
             break
         #invest_shares = investment['shares']
         date_purchased = investment['date']
-        update_position(investment, date, price)
         if investment['shares_remaining'] <= remaining_to_sell:
             # Sell entire investment
             sold_shares = investment['shares_remaining']
@@ -173,33 +171,54 @@ def sell_position(portfolio: Portfolio, ticker, shares_to_sell, price, date, tra
         # Track weighted days held for reporting
         if 'days_held' in investment:
             days_held_weighted += investment['days_held'] * (sold_shares / shares_to_sell)
+        
+        if sold_shares > 0:
+            portfolio.cash += lot_proceeds
     
     # Update portfolio holdings
     actual_shares_sold = shares_to_sell - remaining_to_sell
-    sale_proceeds = actual_shares_sold * price
+    # sale_proceeds = actual_shares_sold * price
     
     if actual_shares_sold > 0:
         portfolio.holdings[ticker]['shares_remaining'] -= actual_shares_sold
-        portfolio.cash += sale_proceeds
+        # portfolio.cash += sale_proceeds
         return transactions
         
     return None
 
-def update_position(investment, date, current_price):
+def update_positions(portfolio: Portfolio, prices, date):
+    date_prices = prices.loc[date]
+    sold_tickers = []
     current_date = pd.to_datetime(date)
-    # Calculate actual days held based on current date
-    purchase_date = pd.to_datetime(investment['date'])
     
-    # Update days held correctly - calculate the actual days passed
-    investment['days_held'] = (current_date - purchase_date).days
-    # Don't need prev value just the investment cost
-    # previous_value = investment['current_value'] 
-    current_value = round(investment['shares_remaining'] * current_price, 2)
-    investment['current_value'] = current_value
-    # Because we might have sold some shares for a specific lot, we must get the prorated 
-    # cost for a particular investment. Ex. Initially purchased 20 shares at $10. I sold 
-    # 10 shares. New price is $12/share. My current value is $120. My return percentage is
-    # $120 / ($200 * (10/20)) => $120/$100 => 120%
-    investment_cost_prorated = investment['cost'] * \
-        (investment['shares_remaining'] / investment['initial_shares_purchased'])
-    investment['return_pct'] = round(((current_value / investment_cost_prorated) - 1) * 100, 2)
+    for ticker, holding in portfolio.holdings.items():
+        if ticker not in date_prices or pd.isna(date_prices[ticker]):
+            continue
+            
+        current_price = date_prices[ticker]
+        ticker_sold = False
+        
+        # Update each investment's current value and return
+        for investment in holding['investments']:
+            if investment['sold']:
+                continue
+            if investment['shares_remaining'] == 0:
+                print(f"There are no shares remaining of investment: {investment}")
+                continue
+            current_date = pd.to_datetime(date)
+            # Calculate actual days held based on current date
+            purchase_date = pd.to_datetime(investment['date'])
+    
+            # Update days held correctly - calculate the actual days passed
+            investment['days_held'] = (current_date - purchase_date).days
+            # Don't need prev value just the investment cost
+            # previous_value = investment['current_value'] 
+            current_value = round(investment['shares_remaining'] * current_price, 2)
+            investment['current_value'] = current_value
+            # Because we might have sold some shares for a specific lot, we must get the prorated 
+            # cost for a particular investment. Ex. Initially purchased 20 shares at $10. I sold 
+            # 10 shares. New price is $12/share. My current value is $120. My return percentage is
+            # $120 / ($200 * (10/20)) => $120/$100 => 120%
+            investment_cost_prorated = investment['cost'] * \
+                (investment['shares_remaining'] / investment['initial_shares_purchased'])
+            investment['return_pct'] = round(((current_value / investment_cost_prorated) - 1) * 100, 2)
