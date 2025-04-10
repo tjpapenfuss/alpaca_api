@@ -33,6 +33,7 @@ def buy_position(portfolio: Portfolio, ticker, shares_to_buy, price, date, trans
         if ticker not in portfolio.holdings:
             portfolio.holdings[ticker] = {
                 'initial_shares_purchased': 0,
+                'shares_remaining': 0,  # Initialize shares_remaining here
                 'investments': [],
                 'cost_basis': 0
             }

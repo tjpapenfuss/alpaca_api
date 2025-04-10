@@ -79,7 +79,11 @@ def track_and_manage_positions(portfolio: Portfolio, prices, date, transactions,
                     'description': f'Sold {sold_shares} shares of {ticker} for tax-loss harvesting'
                 })
                 ticker_sold = True
-        
+            
+                if sold_shares > 0:
+                    portfolio.holdings[ticker]['shares_remaining'] -= sold_shares
+                    # portfolio.cash += sale_proceeds
+
         if ticker_sold:
             sold_tickers.append(ticker)
     
