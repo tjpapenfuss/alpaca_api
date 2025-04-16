@@ -14,7 +14,7 @@ if __name__ == '__main__':
     api_secret = config.ALPACA_API_SECRET
     trading_client = TradingClient(api_key, api_secret, paper=True)
     # Get our position in AAPL.
-    aapl_position = trading_client.get_open_position('SPY')
+    aapl_position = trading_client.get_open_position('AAPL')
     print(aapl_position)
 
 # NEXT UP: Need to fina all my positions and all the orders for that postion to hydrate my Database. 
@@ -29,7 +29,7 @@ if __name__ == '__main__':
     # params to filter orders by
     request_params =  GetOrdersRequest(
                      status=QueryOrderStatus.CLOSED,
-                     side=OrderSide.SELL
+                     side=OrderSide.BUY
                   )
 
     # orders that satisfy params

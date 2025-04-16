@@ -1,7 +1,7 @@
 import pandas as pd
 import pytz
 import datetime as dt
-from datetime import date
+from datetime import date, timedelta
 
 from alpaca.trading.client import TradingClient
 from alpaca.trading.requests import GetOrdersRequest
@@ -26,6 +26,7 @@ def report(api, prevDays):
 
     # orders that satisfy params
     orders = api.get_orders(filter=request_params)
+
     if not orders:
         return
     dfOrders = pd.DataFrame()
@@ -41,6 +42,7 @@ def report(api, prevDays):
         #dfOrders = dfOrders.concat(df, ignore_index=True)
 
     dfOrders = pd.DataFrame(temp_store)
+    print(dfOrders)
     # select filled orders with buy or sell
     dfSel = dfOrders
     # choose a subset (use .copy() as we are slicing and to avoid warning)
@@ -72,3 +74,53 @@ def report(api, prevDays):
     #print(tabulate(dfSel[:0], headers='keys', tablefmt='simple', showindex=False))
 
     
+def get_orders_v2(api, prevDays, symbols=None):
+
+    # First set the initial end_time for the orders
+    # Set to the current time so we fetch all orders up until now
+    # There's a limit to the number of orders received, but by selecting
+    # direction='desc' the API will fetch orders from this date BACKWARDS
+
+    today = (dt.date.today() - dt.timedelta(days=prevDays))
+    #datetime.datetime.now(datetime.timezone.utc).isoformat()
+    # Create an empty list to store our full order list
+    order_list = []
+
+    # Set the 'chunk size' to the 500 max
+    CHUNK_SIZE = 500
+    last_submitted = None
+    while True:
+        # Get the max chunk
+        params = {
+            "status": QueryOrderStatus.ALL,
+            "limit": CHUNK_SIZE,
+            "after": today,
+            "direction": 'desc',
+        }
+
+        if symbols is not None:
+            params["symbols"] = symbols
+
+        request_params = GetOrdersRequest(**params)
+
+        # orders that satisfy params
+        order_chunk = api.get_orders(filter=request_params)
+
+        if order_chunk:
+            # Have orders so add to list
+            order_list.extend(order_chunk)
+            # Detect if stuck in a loop
+            last_submitted = order_chunk[-1].submitted_at
+
+            if order_chunk[-1].submitted_at == order_chunk[len(order_chunk)-1].submitted_at:
+                today = last_submitted + dt.timedelta(days=1)  # just bump a day to break the loop
+            else:
+                today = last_submitted
+
+        else:
+            # No more orders. Make a dataframe of entire list of orders
+            # Then exit
+            order_df = pd.DataFrame([order.model_dump() for order in order_list])
+            break
+
+    return order_df
