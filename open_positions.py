@@ -26,4 +26,14 @@ if __name__ == '__main__':
     # for position in portfolio:
     #     print("{} shares of {}".format(position.qty, position.symbol))
 
-   
+    # params to filter orders by
+    request_params =  GetOrdersRequest(
+                     status=QueryOrderStatus.CLOSED,
+                     side=OrderSide.SELL
+                  )
+
+    # orders that satisfy params
+    orders = trading_client.get_orders(filter=request_params)
+    # for order in orders:
+    #     print(f"Executed a {order.client_order_id} of {order.symbol} for {order.notional} dollars for {order.filled_qty} shares")
+    print(orders)
