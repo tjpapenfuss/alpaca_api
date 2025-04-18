@@ -1,7 +1,7 @@
 from utils.data_loader import download_stock_data, extract_top_tickers_from_csv
 
 
-def get_stock_data(start_date, end_date, tickers_source, top_n):
+def get_stock_data(start_date, end_date, tickers_source, top_n, pickle_file=None):
 
     tickers = extract_top_tickers_from_csv(
             csv_file=tickers_source, 
@@ -15,7 +15,7 @@ def get_stock_data(start_date, end_date, tickers_source, top_n):
         tickers_source=tickers_source,
         top_n=top_n, 
         interval="1d",
-        pickle_file="C:/Users/tjpap/sandbox/alpaca_api/test-5-2025-04-15-2025-04-16.pkl"
+        pickle_file=pickle_file
     )
 
     return extract_price_data(stock_data=stock_data)
