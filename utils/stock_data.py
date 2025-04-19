@@ -38,3 +38,72 @@ def extract_price_data(stock_data, decimals=2):
         else:
             print("Error: 'Close' column not found in data.")
             return None
+        
+def find_top_loss_stocks(buys_df, prices_df, drop_threshold=10.0, top=5):
+    """
+    Find stocks that have dropped significantly and calculate the resulting losses.
+    
+    Args:
+        buys_df (pandas.DataFrame): DataFrame containing buy information including
+                                    'symbol', 'buy_price', and 'quantity_remaining'.
+        prices_df (pandas.DataFrame): DataFrame containing current prices with 
+                                      symbols as column names.
+        drop_threshold (float): Minimum percentage drop to be considered significant (default: 10.0).
+        top_n (int): Number of top stocks to return (default: 5).
+        
+    Returns:
+        list: A list of dictionaries containing information about the top N stocks 
+              with the highest dollar losses.
+    """
+    # Create a list to collect stocks with significant drops
+    significant_drops = []
+    
+    # Compare prices for matching symbols
+    for _, buy_row in buys_df.iterrows():
+        symbol = buy_row['symbol']
+        buy_price = float(buy_row['buy_price'])
+        quantity = float(buy_row['remaining_quantity'])  # Get remaining quantity
+        
+        # Check if the symbol exists as a column in prices_df
+        if symbol in prices_df.columns:
+            # Get the most recent price from prices_df for this symbol
+            current_price = float(prices_df[symbol].iloc[-1])
+            
+            # Calculate percentage drop
+            if current_price < buy_price:
+                percentage_drop = ((buy_price - current_price) / buy_price) * 100
+                
+                # Check if drop is more than the threshold (e.g., 10% or more)
+                if percentage_drop >= drop_threshold:
+                    # Calculate total loss in dollar value
+                    dollar_loss = (buy_price - current_price) * quantity
+                    
+                    # Add to our collection of significant drops
+                    significant_drops.append({
+                        'symbol': symbol,
+                        'percentage_drop': percentage_drop,
+                        'buy_price': buy_price,
+                        'current_price': current_price,
+                        'quantity': quantity,
+                        'dollar_loss': dollar_loss
+                    })
+        else:
+            print(f"Symbol: {symbol} - Not found in prices_df")
+    
+    # Sort significant drops by dollar loss (highest to lowest)
+    significant_drops.sort(key=lambda x: x['dollar_loss'], reverse=True)
+    
+    # Return the top drops (or fewer if less than 5 significant drops)
+    top_drops = significant_drops[:top]
+    
+    # Print the results
+    if top_drops:
+        print(f"Top {top} Stocks with Highest Dollar Losses (10%+ drops):")
+        for i, drop in enumerate(top_drops, 1):
+            print(f"{i}. {drop['symbol']} - ${drop['dollar_loss']:.2f} loss " 
+                  f"(Down {drop['percentage_drop']:.2f}% from ${drop['buy_price']:.2f} " 
+                  f"to ${drop['current_price']:.2f}, {drop['quantity']} shares)")
+    else:
+        print("No stocks with drops of 10% or more were found.")
+    
+    return top_drops

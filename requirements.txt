@@ -3,3 +3,6 @@ alpaca-py
 yfinance
 matplotlib
 psycopg2
+fastapi 
+uvicorn
+strawberry-graphql

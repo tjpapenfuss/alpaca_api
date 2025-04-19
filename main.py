@@ -6,9 +6,9 @@ import config
 import json 
 from datetime import date, timedelta
 
-from SQL_scripts.buy_sell import insert_orders, buy_entries_for_tickers, get_all_symbols
+from SQL_scripts.buy_sell import insert_orders, buy_entries_for_tickers, get_all_symbols, get_account_positions
 from trading.trade_report import report, get_orders_v2
-from utils.stock_data import get_stock_data
+from utils.stock_data import get_stock_data, find_top_loss_stocks
 
 import psycopg2
 
@@ -62,34 +62,35 @@ if __name__ == '__main__':
                                )
 
     buys_df = buy_entries_for_tickers(prices_df)
-    # print(buys_df)
-    # print(prices_df)
+
+    print(find_top_loss_stocks(buys_df, prices_df, drop_threshold=10.0, top=15))
+
     # Compare prices for matching symbols
-    for _, buy_row in buys_df.iterrows():
-        symbol = buy_row['symbol']
-        buy_price = float(buy_row['buy_price'])  # Assuming there's a 'price' column in buys_df
+    # for _, buy_row in buys_df.iterrows():
+    #     symbol = buy_row['symbol']
+    #     buy_price = float(buy_row['buy_price'])  # Assuming there's a 'price' column in buys_df
         
-         # Check if the symbol exists as a column in prices_df
-        if symbol in prices_df.columns:
-            # Get the most recent price from prices_df for this symbol
-            # (using the last row in the DataFrame)
-            price_from_prices_df = float(prices_df[symbol].iloc[-1])
+    #      # Check if the symbol exists as a column in prices_df
+    #     if symbol in prices_df.columns:
+    #         # Get the most recent price from prices_df for this symbol
+    #         # (using the last row in the DataFrame)
+    #         price_from_prices_df = float(prices_df[symbol].iloc[-1])
             
-            # Compare prices
-            if price_from_prices_df <= buy_price * 0.9:  # 10% or more drop
-                percentage_drop = ((buy_price - price_from_prices_df) / buy_price) * 100
-                print(f"Symbol: {symbol} - ALERT! Price dropped {percentage_drop:.2f}% from ${buy_price:.2f} to ${price_from_prices_df:.2f}")
-            elif price_from_prices_df < buy_price:
-                # If there's a drop, but less than 10%
-                percentage_drop = ((buy_price - price_from_prices_df) / buy_price) * 100
-                print(f"Symbol: {symbol} - Price dropped {percentage_drop:.2f}% from ${buy_price:.2f} to ${price_from_prices_df:.2f}")
-            elif price_from_prices_df > buy_price:
-                percentage_gain = ((price_from_prices_df - buy_price) / buy_price) * 100
-                print(f"Symbol: {symbol} - Price increased {percentage_gain:.2f}% from ${buy_price:.2f} to ${price_from_prices_df:.2f}")
-            else:
-                print(f"Symbol: {symbol} - Price unchanged at ${buy_price:.2f}")
-        else:
-            print(f"Symbol: {symbol} - Not found in prices_df")
+    #         # Compare prices
+    #         if price_from_prices_df <= buy_price * 0.9:  # 10% or more drop
+    #             percentage_drop = ((buy_price - price_from_prices_df) / buy_price) * 100
+    #             print(f"Symbol: {symbol} - ALERT! Price dropped {percentage_drop:.2f}% from ${buy_price:.2f} to ${price_from_prices_df:.2f}")
+    #         elif price_from_prices_df < buy_price:
+    #             # If there's a drop, but less than 10%
+    #             percentage_drop = ((buy_price - price_from_prices_df) / buy_price) * 100
+    #             print(f"Symbol: {symbol} - Price dropped {percentage_drop:.2f}% from ${buy_price:.2f} to ${price_from_prices_df:.2f}")
+    #         elif price_from_prices_df > buy_price:
+    #             percentage_gain = ((price_from_prices_df - buy_price) / buy_price) * 100
+    #             print(f"Symbol: {symbol} - Price increased {percentage_gain:.2f}% from ${buy_price:.2f} to ${price_from_prices_df:.2f}")
+    #         else:
+    #             print(f"Symbol: {symbol} - Price unchanged at ${buy_price:.2f}")
+    #     else:
+    #         print(f"Symbol: {symbol} - Not found in prices_df")
 
     # WHAT I NEED TO DO:
     # - Run this and you see I have the comparison. Now I just need to find a way to merge this with 

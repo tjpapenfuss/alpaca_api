@@ -86,7 +86,7 @@ def insert_orders(df, db_config, user_id=None):
     cur.close()
     conn.close()
 
-def buy_entries_for_tickers(df):
+def buy_entries_for_tickers(user_id, df):
     """
     Retrieves buy entries for each ticker in the DataFrame and returns them in a DataFrame.
     
@@ -119,8 +119,8 @@ def buy_entries_for_tickers(df):
                 cur.execute("""
                     SELECT buy_order_id, symbol, buy_price, original_quantity, remaining_quantity, buy_datetime
                     FROM Buy
-                    WHERE symbol = %s
-                """, (ticker,))
+                    WHERE symbol = %s AND user_id = %s
+                """, (ticker,user_id,))
                 rows = cur.fetchall()
                 if rows:
                     all_rows.extend(rows)
@@ -137,3 +137,64 @@ def buy_entries_for_tickers(df):
         return pd.DataFrame(columns=headers)  # Return empty DataFrame with headers
     result_df = pd.DataFrame(all_rows, columns=headers)
     return result_df
+
+def get_account_positions(user_id: int) -> list[dict]:
+    """
+    Retrieve all current positions for a specific user.
+    
+    Args:
+        user_id: The ID of the user
+        
+    Returns:
+        A list of position dictionaries containing symbol, quantity, and average price
+    """
+    try:
+        # Connect to PostgreSQL database
+        conn = psycopg2.connect(
+            host=config.db_config['host'],
+            dbname=config.db_config['dbname'],
+            user=config.db_config['user'],
+            password=config.db_config['password'],
+            port=config.db_config.get('port', 5432)
+        )
+        cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+
+        # Query to calculate current positions based on buys and sells
+        # This is a simplified query and may need adjustment based on your schema
+        query = """
+        SELECT 
+            b.symbol,
+            b.buy_order_id,
+            b.buy_price,
+            b.original_quantity,
+            b.remaining_quantity,
+            b.buy_datetime
+        FROM 
+            Buy b
+        WHERE 
+            b.user_id = %s
+        """
+        
+        cur.execute(query, (user_id,))
+        positions = cur.fetchall()
+
+        # Close connections
+        cur.close()
+        conn.close()
+        # Convert to list of dictionaries
+        result = []
+        for pos in positions:
+            result.append({
+                "buy_order_id": pos["buy_order_id"],
+                "symbol": pos["symbol"],
+                "buy_price": float(pos["buy_price"]),
+                "original_quantity": float(pos["original_quantity"]),
+                "remaining_quantity": float(pos["remaining_quantity"]),
+                "buy_datetime": pos["buy_datetime"]
+            })
+        
+        return result
+
+    except Exception as e:
+        print("Error while fetching account positions:", e)
+        return []
