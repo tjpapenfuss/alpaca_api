@@ -9,7 +9,19 @@ def download_stock_data(tickers, start_date, end_date, pickle_file=None, top_n=0
     
     try:
         if(pickle_file is not None):
-            stock_data = pd.read_pickle(pickle_file)
+            try:
+                stock_data = pd.read_pickle(pickle_file)
+            except FileNotFoundError:
+                print(f"Error: Pickle file '{pickle_file}' not found. Downloading data instead and saving to pickle file.")
+                stock_data = generate_stock_data(
+                tickers=tickers,
+                start_date=start_date,
+                end_date=end_date,
+                interval=interval,
+                top_n=top_n,
+                to_pickle=True,
+                save_location=pickle_file,
+             )
         elif(tickers is not None):
             stock_data = generate_stock_data(
                 tickers=tickers, 
@@ -151,7 +163,7 @@ def extract_weights_from_csv(csv_file, top_n=10):
         print(f"Unexpected error occurred: {str(e)}")
         return {}
 
-def generate_stock_data(tickers, start_date, end_date, interval="1d", top_n=500, to_pickle=False, save_location="pickle_files/top"):
+def generate_stock_data(tickers, start_date, end_date, interval="1d", top_n=500, to_pickle=False, save_location=None):
 
     ticker_data = yf.download(
                     tickers=tickers,
@@ -161,9 +173,8 @@ def generate_stock_data(tickers, start_date, end_date, interval="1d", top_n=500,
                     group_by='ticker'
                 )
     
-    if to_pickle is True:
-        ticker_data_location = f"{save_location}-{top_n}-{start_date}-{end_date}.pkl"
+    if to_pickle is True and save_location is not None:
         # Send data to pickle file for pickup later. 
-        ticker_data.to_pickle(ticker_data_location)
+        ticker_data.to_pickle(save_location)
 
     return ticker_data
