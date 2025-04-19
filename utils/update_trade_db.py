@@ -20,7 +20,7 @@ def batch_list(items: list, batch_size: int) -> list[list]:
     return [items[i:i + batch_size] for i in range(0, len(items), batch_size)]
 
 def update_trade_database(api_client: TradingClient, days_to_fetch: int = 150, 
-                          db_config: dict = None, symbols: list = None) -> None:
+                          db_config: dict = None, symbols: list = None, user_id = None) -> None:
     """
     Retrieve historical trade information from Alpaca and store in the database.
     
@@ -68,7 +68,7 @@ def update_trade_database(api_client: TradingClient, days_to_fetch: int = 150,
         
         # Store the fetched orders in the database
         if not trade_df.empty:
-            insert_orders(df=trade_df, db_config=db_config)
+            insert_orders(df=trade_df, db_config=db_config, user_id=user_id)
             print(f"Inserted {len(trade_df)} trade records for batch {i+1}")
         else:
             print(f"No trades found for batch {i+1}")

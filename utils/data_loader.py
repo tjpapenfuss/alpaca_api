@@ -2,7 +2,7 @@ import yfinance as yf
 import pandas as pd
 from datetime import datetime, timedelta
 
-def download_stock_data(tickers, start_date, end_date, pickle_file=None, tickers_source=None, top_n=0, interval="1d"):
+def download_stock_data(tickers, start_date, end_date, pickle_file=None, top_n=0, interval="1d"):
     """
     Download daily stock price data for the specified tickers and date range.
     """
@@ -10,9 +10,9 @@ def download_stock_data(tickers, start_date, end_date, pickle_file=None, tickers
     try:
         if(pickle_file is not None):
             stock_data = pd.read_pickle(pickle_file)
-        elif(tickers_source is not None):
+        elif(tickers is not None):
             stock_data = generate_stock_data(
-                tickers_source=tickers_source, 
+                tickers=tickers, 
                 start_date=start_date, 
                 end_date=end_date, 
                 interval=interval, 
@@ -22,7 +22,7 @@ def download_stock_data(tickers, start_date, end_date, pickle_file=None, tickers
                 # save_location='test',
              )
         else:
-            print(f"Error downloading stock data. You must have a pickle file or a ticker source file.")
+            print(f"Error downloading stock data. You must have a pickle file or a list of tickers.")
             return None, tickers
         
         # Handle failed tickers
@@ -151,13 +151,7 @@ def extract_weights_from_csv(csv_file, top_n=10):
         print(f"Unexpected error occurred: {str(e)}")
         return {}
 
-def generate_stock_data(tickers_source, start_date, end_date, interval="1d", top_n=500, to_pickle=False, save_location="pickle_files/top"):
-
-    # Get tickers from configuration
-    tickers = extract_top_tickers_from_csv(
-        csv_file=tickers_source, 
-        top_n=top_n
-    )
+def generate_stock_data(tickers, start_date, end_date, interval="1d", top_n=500, to_pickle=False, save_location="pickle_files/top"):
 
     ticker_data = yf.download(
                     tickers=tickers,

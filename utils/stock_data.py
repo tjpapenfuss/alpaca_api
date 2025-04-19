@@ -1,18 +1,21 @@
 from utils.data_loader import download_stock_data, extract_top_tickers_from_csv
 
 
-def get_stock_data(start_date, end_date, tickers_source, top_n, pickle_file=None):
+def get_stock_data(start_date, end_date, top_n, tickers=None, tickers_source=None, pickle_file=None):
 
-    tickers = extract_top_tickers_from_csv(
-            csv_file=tickers_source, 
-            top_n=top_n
-        )
+    if tickers is None and tickers_source is not None:
+        tickers = extract_top_tickers_from_csv(
+                csv_file=tickers_source, 
+                top_n=top_n
+            )
+    elif tickers is None and tickers_source is None:
+        print("Error: No tickers provided and no tickers source file specified.")
+        return None
     # Download historical stock data
     valid_tickers, stock_data = download_stock_data(
         tickers=tickers, 
         start_date=start_date, 
         end_date=end_date,
-        tickers_source=tickers_source,
         top_n=top_n, 
         interval="1d",
         pickle_file=pickle_file

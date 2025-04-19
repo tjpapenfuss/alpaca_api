@@ -12,7 +12,7 @@ from utils.stock_data import get_stock_data
 
 import psycopg2
 
-def get_all_symbols():
+def get_all_symbols(user_id):
     try:
         # Connect to your PostgreSQL database
         conn = psycopg2.connect(
@@ -25,7 +25,7 @@ def get_all_symbols():
         cur = conn.cursor()
 
         # Execute query to get all distinct symbols
-        cur.execute("SELECT DISTINCT symbol FROM Buy")
+        cur.execute("SELECT DISTINCT symbol FROM Buy WHERE user_id = %s", (user_id,))
         symbols = cur.fetchall()
 
         # Close connections
@@ -125,38 +125,46 @@ if __name__ == '__main__':
     
     # Example of calling the trade retrieval function (commented out for now)
     # from utils.update_trade_db import update_trade_database
-    # update_trade_database(trading_client, 150, config.db_config)
+    # update_trade_database(trading_client, 150, config.db_config, user_id=config.user_id)
     
     # The rest of your existing code for getting today's stock data
     today = date.today().strftime("%Y-%m-%d")
     yesterday = (date.today() - timedelta(days=1)).strftime("%Y-%m-%d")
-    
+    tickers = get_all_symbols(user_id=config.user_id)
     prices_df = get_stock_data(start_date=yesterday,
                                end_date=today,
-                               tickers_source=config.yfinance_config.get('tickers_source'),
-                               top_n=config.yfinance_config.get('top_n'),
-                               pickle_file="C:/Users/tjpap/sandbox/alpaca_api/test-5-2025-04-15-2025-04-16.pkl")
+                               tickers=tickers,
+                               # tickers_source=config.yfinance_config.get('tickers_source'),
+                               top_n=len(tickers)
+                               # pickle_file="C:/Users/tjpap/sandbox/alpaca_api/test-5-2025-04-15-2025-04-16.pkl"
+                               )
     buys_df = buy_entries_for_tickers(prices_df)
     # print(buys_df)
     # print(prices_df)
     # Compare prices for matching symbols
     for _, buy_row in buys_df.iterrows():
         symbol = buy_row['symbol']
-        buy_price = buy_row['buy_price']  # Assuming there's a 'price' column in buys_df
+        buy_price = float(buy_row['buy_price'])  # Assuming there's a 'price' column in buys_df
         
          # Check if the symbol exists as a column in prices_df
         if symbol in prices_df.columns:
             # Get the most recent price from prices_df for this symbol
             # (using the last row in the DataFrame)
-            price_from_prices_df = prices_df[symbol].iloc[-1]
+            price_from_prices_df = float(prices_df[symbol].iloc[-1])
             
             # Compare prices
-            if price_from_prices_df > buy_price:
-                print(f"Symbol: {symbol} - prices_df price (${price_from_prices_df:.2f}) is higher than buys_df price (${buy_price:.2f})")
+            if price_from_prices_df <= buy_price * 0.9:  # 10% or more drop
+                percentage_drop = ((buy_price - price_from_prices_df) / buy_price) * 100
+                print(f"Symbol: {symbol} - ALERT! Price dropped {percentage_drop:.2f}% from ${buy_price:.2f} to ${price_from_prices_df:.2f}")
             elif price_from_prices_df < buy_price:
-                print(f"Symbol: {symbol} - buys_df price (${buy_price:.2f}) is higher than prices_df price (${price_from_prices_df:.2f})")
+                # If there's a drop, but less than 10%
+                percentage_drop = ((buy_price - price_from_prices_df) / buy_price) * 100
+                print(f"Symbol: {symbol} - Price dropped {percentage_drop:.2f}% from ${buy_price:.2f} to ${price_from_prices_df:.2f}")
+            elif price_from_prices_df > buy_price:
+                percentage_gain = ((price_from_prices_df - buy_price) / buy_price) * 100
+                print(f"Symbol: {symbol} - Price increased {percentage_gain:.2f}% from ${buy_price:.2f} to ${price_from_prices_df:.2f}")
             else:
-                print(f"Symbol: {symbol} - Both dataframes have the same price (${buy_price:.2f})")
+                print(f"Symbol: {symbol} - Price unchanged at ${buy_price:.2f}")
         else:
             print(f"Symbol: {symbol} - Not found in prices_df")
 

@@ -2,7 +2,7 @@ import psycopg2
 import pandas as pd
 import config
 
-def insert_orders(df, db_config):
+def insert_orders(df, db_config, user_id=None):
     """
     Inserts buy/sell orders into PostgreSQL database based on the side column.
     
@@ -20,16 +20,20 @@ def insert_orders(df, db_config):
     )
     cur = conn.cursor()
 
+    if user_id is None:
+        print("User ID was not provided. Please provide a valid user ID.")
+
     for _, row in df.iterrows():
         side = row['side'].strip().upper()
 
         if 'BUY' in side:
             cur.execute("""
-                INSERT INTO Buy (buy_order_id, symbol, buy_price, original_quantity, remaining_quantity, buy_datetime)
-                VALUES (%s, %s, %s, %s, %s, %s)
+                INSERT INTO Buy (buy_order_id, user_id, symbol, buy_price, original_quantity, remaining_quantity, buy_datetime)
+                VALUES (%s, %s, %s, %s, %s, %s, %s)
                 ON CONFLICT (buy_order_id) DO NOTHING
             """, (
                 row['client_order_id'],
+                user_id,
                 row['symbol'],
                 float(row['filled_avg_price']),
                 float(row['filled_qty']),
