@@ -37,7 +37,8 @@ CREATE TABLE Buy (
 CREATE TABLE Sell (
     sell_order_id VARCHAR(100) PRIMARY KEY,
     user_id UUID NOT NULL,
-    buy_order_id VARCHAR(100) NOT NULL,
+    symbol VARCHAR(10) NOT NULL,
+    buy_order_id VARCHAR(100) NULL,
     sell_price DECIMAL(18, 6) NOT NULL,
     sell_quantity DECIMAL(18, 6) NOT NULL,
     sell_datetime TIMESTAMP NOT NULL,

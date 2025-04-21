@@ -13,54 +13,65 @@ from utils.stock_data import get_stock_data, find_top_loss_stocks
 import psycopg2
 
 # Function to get Buy entries for a specific symbol
-def get_buy_entries_for_symbol(symbol):
-    # Connect to your PostgreSQL database
-    conn = psycopg2.connect(
-        host=config.db_config['host'],
-        dbname=config.db_config['dbname'],
-        user=config.db_config['user'],
-        password=config.db_config['password'],
-        port=config.db_config.get('port', 5432)
-    )
-    cur = conn.cursor()
+# def get_buy_entries_for_symbol(symbol):
+#     # Connect to your PostgreSQL database
+#     conn = psycopg2.connect(
+#         host=config.db_config['host'],
+#         dbname=config.db_config['dbname'],
+#         user=config.db_config['user'],
+#         password=config.db_config['password'],
+#         port=config.db_config.get('port', 5432)
+#     )
+#     cur = conn.cursor()
 
-    try:
-        with psycopg2.connect(
-            host="your_host",
-            port="5432",
-            dbname="your_db",
-            user="your_user",
-            password="your_password"
-        ) as conn:
-            with conn.cursor() as cur:
-                cur.execute("SELECT * FROM Buy WHERE symbol = %s", (symbol,))
-                return cur.fetchall()
-    except Exception as e:
-        print(f"Error fetching entries for {symbol}:", e)
-        return []
+#     try:
+#         with psycopg2.connect(
+#             host="your_host",
+#             port="5432",
+#             dbname="your_db",
+#             user="your_user",
+#             password="your_password"
+#         ) as conn:
+#             with conn.cursor() as cur:
+#                 cur.execute("SELECT * FROM Buy WHERE symbol = %s", (symbol,))
+#                 return cur.fetchall()
+#     except Exception as e:
+#         print(f"Error fetching entries for {symbol}:", e)
+#         return []
 
 if __name__ == '__main__':
     api_key = config.ALPACA_API_KEY
     api_secret = config.ALPACA_API_SECRET
     trading_client = TradingClient(api_key, api_secret, paper=True)
     
-    # Example of calling the trade retrieval function (commented out for now)
-    # from utils.update_trade_db import update_trade_database
-    # update_trade_database(trading_client, 150, config.db_config, user_id=config.user_id)
+    # --------------------#
+    # This block of code can be used to pull in transactions from alpaca.markets. 
+    # This will only pull in transactions 500 at a time so be careful with how many transactions you have. 
+    # ------------------- #
+    '''
+    from utils.update_trade_db import update_trade_database
+    from utils.data_loader import extract_top_tickers_from_csv
+    tickers = extract_top_tickers_from_csv(csv_file=config.yfinance_config.get('tickers_source'), 
+        top_n=config.yfinance_config.get('top_n'))
+    # tickers.append('SPY')  # Ensure SPY is included in the list
+    # tickers = ['SPY']
+    update_trade_database(api_client=trading_client, days_to_fetch=30,
+        db_config=config.db_config, symbols=tickers, user_id=config.user_id)
+    '''
     
     # The rest of your existing code for getting today's stock data
     today = date.today().strftime("%Y-%m-%d")
+    tomorrow = (date.today() + timedelta(days=1)).strftime("%Y-%m-%d")
     yesterday = (date.today() - timedelta(days=1)).strftime("%Y-%m-%d")
     tickers = get_all_symbols(user_id=config.user_id)
-    pickle_file = f"C:/Users/tjpap/sandbox/alpaca_api/pickle_files/test-{len(tickers)}-{yesterday}-{today}.pkl"
-    prices_df = get_stock_data(start_date=yesterday,
-                               end_date=today,
+    pickle_file = f"C:/Users/tjpap/sandbox/alpaca_api/pickle_files/test-{len(tickers)}-{today}-{tomorrow}.pkl"
+    prices_df = get_stock_data(start_date=today,
+                               end_date=tomorrow,
                                tickers=tickers,
                                # tickers_source=config.yfinance_config.get('tickers_source'),
                                top_n=len(tickers),
                                pickle_file=pickle_file
                                )
-    print(prices_df)
     buys_df = buy_entries_for_tickers(user_id="94c779e0-d045-44a2-b507-23fd7972ae41", df=prices_df)
 
     print(find_top_loss_stocks(buys_df, prices_df, drop_threshold=10.0, top=15))
