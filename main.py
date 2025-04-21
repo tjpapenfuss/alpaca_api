@@ -60,11 +60,10 @@ if __name__ == '__main__':
                                top_n=len(tickers),
                                pickle_file=pickle_file
                                )
-
-    buys_df = buy_entries_for_tickers(prices_df)
+    print(prices_df)
+    buys_df = buy_entries_for_tickers(user_id="94c779e0-d045-44a2-b507-23fd7972ae41", df=prices_df)
 
     print(find_top_loss_stocks(buys_df, prices_df, drop_threshold=10.0, top=15))
-
     # Compare prices for matching symbols
     # for _, buy_row in buys_df.iterrows():
     #     symbol = buy_row['symbol']

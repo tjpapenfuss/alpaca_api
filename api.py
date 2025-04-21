@@ -240,6 +240,17 @@ graphql_app = GraphQLRouter(schema)
 
 # Create FastAPI app
 app = FastAPI(title="Account Positions API")
+from fastapi.middleware.cors import CORSMiddleware
+
+# Update this in your app definition
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000"],  # Add your frontend URL here
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "OPTIONS"],  # Make sure OPTIONS is included
+    allow_headers=["*"],  # Or specify the headers you want to allow
+)
+
 app.include_router(graphql_app, prefix="/graphql")
 
 
