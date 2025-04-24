@@ -5,12 +5,15 @@ from alpaca.trading.enums import OrderSide, QueryOrderStatus
 import config
 import json 
 from datetime import date, timedelta
+from dotenv import load_dotenv
+import os
 
-from SQL_scripts.buy_sell import insert_orders, buy_entries_for_tickers, get_all_symbols, get_account_positions
+from SQL_scripts.buy_sell import OrderManager
 from trading.trade_report import report, get_orders_v2
 from utils.stock_data import get_stock_data, find_top_loss_stocks
 
 import psycopg2
+from SQL_scripts.legacy_stock_data import StockDataLoader
 
 # Function to get Buy entries for a specific symbol
 # def get_buy_entries_for_symbol(symbol):
@@ -40,10 +43,19 @@ import psycopg2
 #         return []
 
 if __name__ == '__main__':
-    api_key = config.ALPACA_API_KEY
-    api_secret = config.ALPACA_API_SECRET
+    load_dotenv()
+    api_key = os.getenv('ALPACA_API_KEY')
+    api_secret = os.getenv('ALPACA_API_SECRET')
     trading_client = TradingClient(api_key, api_secret, paper=True)
-    
+    db_config = {
+        'host': os.getenv('db_config.host', 'localhost'),
+        'dbname': os.getenv('db_config.dbname'),
+        'user': os.getenv('db_config.user'),
+        'password': os.getenv('db_config.password'),
+        'port': int(os.getenv('db_config.port'))
+    }
+    loader = StockDataLoader(db_config)
+    orderer = OrderManager(db_config=db_config, user_id=os.getenv('user_id'), account_id=os.getenv('account_id'))
     # --------------------#
     # This block of code can be used to pull in transactions from alpaca.markets. 
     # This will only pull in transactions 500 at a time so be careful with how many transactions you have. 
@@ -53,28 +65,26 @@ if __name__ == '__main__':
     from utils.data_loader import extract_top_tickers_from_csv
     tickers = extract_top_tickers_from_csv(csv_file=config.yfinance_config.get('tickers_source'), 
         top_n=config.yfinance_config.get('top_n'))
-    # tickers.append('SPY')  # Ensure SPY is included in the list
+    tickers.append('SPY')  # Ensure SPY is included in the list
     # tickers = ['SPY']
-    update_trade_database(api_client=trading_client, days_to_fetch=30,
-        db_config=config.db_config, symbols=tickers, user_id=config.user_id)
+    update_trade_database(api_client=trading_client, orderer=orderer, days_to_fetch=150,
+        db_config=db_config, symbols=tickers)
     '''
-    
+
     # The rest of your existing code for getting today's stock data
     today = date.today().strftime("%Y-%m-%d")
     tomorrow = (date.today() + timedelta(days=1)).strftime("%Y-%m-%d")
     yesterday = (date.today() - timedelta(days=1)).strftime("%Y-%m-%d")
-    tickers = get_all_symbols(user_id=config.user_id)
-    pickle_file = f"C:/Users/tjpap/sandbox/alpaca_api/pickle_files/test-{len(tickers)}-{today}-{tomorrow}.pkl"
-    prices_df = get_stock_data(start_date=today,
-                               end_date=tomorrow,
-                               tickers=tickers,
-                               # tickers_source=config.yfinance_config.get('tickers_source'),
-                               top_n=len(tickers),
-                               pickle_file=pickle_file
-                               )
-    buys_df = buy_entries_for_tickers(user_id="94c779e0-d045-44a2-b507-23fd7972ae41", df=prices_df)
+    tickers = orderer.get_all_symbols()
+    start_date = (date.today() - timedelta(days=4)).strftime('%Y-%m-%d') # get yesterday's date
+    end_date = date.today().strftime('%Y-%m-%d')
 
-    print(find_top_loss_stocks(buys_df, prices_df, drop_threshold=10.0, top=15))
+    # Load data from database and find top loss stocks
+    prices_df = loader.load_close_data_from_db(tickers, start_date=start_date, end_date=end_date)
+    buys_df = orderer.buy_entries_for_tickers(df=prices_df)
+
+    find_top_loss_stocks(buys_df, prices_df, drop_threshold=10.0, top=15)
+
     # Compare prices for matching symbols
     # for _, buy_row in buys_df.iterrows():
     #     symbol = buy_row['symbol']
@@ -102,14 +112,3 @@ if __name__ == '__main__':
     #     else:
     #         print(f"Symbol: {symbol} - Not found in prices_df")
 
-    # WHAT I NEED TO DO:
-    # - Run this and you see I have the comparison. Now I just need to find a way to merge this with 
-    #   existing functionality for TLH.
-    # - 
-    # - I have the orders. I need to get all the orders for all 500 stocks. Try this in batches of 50. 
-    # - Once I have all orders in the SQL DB, then I can run the below code to find the buy entries.
-    # - Buy entries I can extract the price of the buy and compare it with the current price from prices_df.
-    # - What I want is an output that I can show someone that says hey, here are the potential sells and 
-    #   here is the value you could get from these sells. 
-
-    # print_buy_entries_for_each_ticker(prices_df)

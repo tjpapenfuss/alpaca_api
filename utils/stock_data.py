@@ -45,7 +45,7 @@ def find_top_loss_stocks(buys_df, prices_df, drop_threshold=10.0, top=5):
     
     Args:
         buys_df (pandas.DataFrame): DataFrame containing buy information including
-                                    'symbol', 'buy_price', and 'quantity_remaining'.
+                                    'symbol', 'filled_avg_price', and 'quantity_remaining'.
         prices_df (pandas.DataFrame): DataFrame containing current prices with 
                                       symbols as column names.
         drop_threshold (float): Minimum percentage drop to be considered significant (default: 10.0).
@@ -61,8 +61,8 @@ def find_top_loss_stocks(buys_df, prices_df, drop_threshold=10.0, top=5):
     # Compare prices for matching symbols
     for _, buy_row in buys_df.iterrows():
         symbol = buy_row['symbol']
-        buy_price = float(buy_row['buy_price'])
-        quantity = float(buy_row['remaining_quantity'])  # Get remaining quantity
+        filled_avg_price = float(buy_row['filled_avg_price'])
+        quantity = float(buy_row['remaining_qty'])  # Get remaining quantity
         
         # Check if the symbol exists as a column in prices_df
         if symbol in prices_df.columns:
@@ -70,19 +70,19 @@ def find_top_loss_stocks(buys_df, prices_df, drop_threshold=10.0, top=5):
             current_price = float(prices_df[symbol].iloc[-1])
             
             # Calculate percentage drop
-            if current_price < buy_price:
-                percentage_drop = ((buy_price - current_price) / buy_price) * 100
+            if current_price < filled_avg_price:
+                percentage_drop = ((filled_avg_price - current_price) / filled_avg_price) * 100
                 
                 # Check if drop is more than the threshold (e.g., 10% or more)
                 if percentage_drop >= drop_threshold:
                     # Calculate total loss in dollar value
-                    dollar_loss = (buy_price - current_price) * quantity
+                    dollar_loss = (filled_avg_price - current_price) * quantity
                     
                     # Add to our collection of significant drops
                     significant_drops.append({
                         'symbol': symbol,
                         'percentage_drop': percentage_drop,
-                        'buy_price': buy_price,
+                        'filled_avg_price': filled_avg_price,
                         'current_price': current_price,
                         'quantity': quantity,
                         'dollar_loss': dollar_loss
@@ -101,7 +101,7 @@ def find_top_loss_stocks(buys_df, prices_df, drop_threshold=10.0, top=5):
         print(f"Top {top} Stocks with Highest Dollar Losses (10%+ drops):")
         for i, drop in enumerate(top_drops, 1):
             print(f"{i}. {drop['symbol']} - ${drop['dollar_loss']:.2f} loss " 
-                  f"(Down {drop['percentage_drop']:.2f}% from ${drop['buy_price']:.2f} " 
+                  f"(Down {drop['percentage_drop']:.2f}% from ${drop['filled_avg_price']:.2f} " 
                   f"to ${drop['current_price']:.2f}, {drop['quantity']} shares)")
     else:
         print("No stocks with drops of 10% or more were found.")

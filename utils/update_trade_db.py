@@ -1,9 +1,9 @@
-from SQL_scripts.buy_sell import insert_orders
 from trading.trade_report import report, get_orders_v2
 from alpaca.trading.client import TradingClient
 import config
 from datetime import date, timedelta
 from utils.stock_data import get_stock_data
+from SQL_scripts.buy_sell import OrderManager
 
 # Function to batch the list
 def batch_list(items: list, batch_size: int) -> list[list]:
@@ -19,8 +19,8 @@ def batch_list(items: list, batch_size: int) -> list[list]:
     """
     return [items[i:i + batch_size] for i in range(0, len(items), batch_size)]
 
-def update_trade_database(api_client: TradingClient, days_to_fetch: int = 150, 
-                          db_config: dict = None, symbols: list = None, user_id = None) -> None:
+def update_trade_database(api_client: TradingClient, orderer: OrderManager, days_to_fetch: int = 150, 
+                          db_config: dict = None, symbols: list = None) -> None:
     """
     Retrieve historical trade information from Alpaca and store in the database.
     
@@ -65,10 +65,10 @@ def update_trade_database(api_client: TradingClient, days_to_fetch: int = 150,
         
         # Fetch orders for the current batch of symbols
         trade_df = get_orders_v2(api=api_client, prevDays=days_to_fetch, symbols=batch)
-        
+        # print(trade_df)
         # Store the fetched orders in the database
         if not trade_df.empty:
-            insert_orders(df=trade_df, db_config=db_config, user_id=user_id)
+            orderer.insert_orders(df=trade_df)
             print(f"Inserted {len(trade_df)} trade records for batch {i+1}")
         else:
             print(f"No trades found for batch {i+1}")

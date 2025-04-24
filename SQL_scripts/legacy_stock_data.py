@@ -46,8 +46,7 @@ class StockDataLoader:
         except psycopg2.Error as e:
             self.logger.error(f"Database connection error: {e}")
             raise
-    
-
+        
     def download_stock_data(self, 
                            tickers: List[str], 
                            start_date: Optional[Union[str, datetime]] = None,
@@ -180,7 +179,9 @@ class StockDataLoader:
             start_date = start_date.strftime('%Y-%m-%d')
         if isinstance(end_date, datetime):
             end_date = end_date.strftime('%Y-%m-%d')
-            
+        if not tickers:
+            self.logger.warning("No tickers provided for loading data from database")
+            return pd.DataFrame()
         try:
             conn = self._get_connection()
             cursor = conn.cursor()

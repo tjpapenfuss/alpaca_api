@@ -105,7 +105,6 @@ def get_orders_v2(api, prevDays, symbols=None):
 
         # orders that satisfy params
         order_chunk = api.get_orders(filter=request_params)
-
         if order_chunk:
             # Have orders so add to list
             order_list.extend(order_chunk)
