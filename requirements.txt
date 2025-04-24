@@ -6,3 +6,4 @@ psycopg2
 fastapi 
 uvicorn
 strawberry-graphql
+python-dotenv

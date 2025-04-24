@@ -27,3 +27,25 @@ INSERT INTO Users (
     TRUE,              -- User is active
     'https://example.com/profile-pictures/default.png' -- Optional profile picture URL
 );
+
+-- Insert a sample Alpaca Markets account
+INSERT INTO accounts (
+    user_id,
+    account_name,
+    account_type,
+    brokerage_name,
+    account_number,
+    connection_status,
+    --api_credentials,
+    last_synced
+) VALUES (
+    -- Replace this with your actual user_id from the Users table
+    '{INSERT_USER_ID_HERE}'::UUID,
+    '{INSERT_ACCOUNT_NAME_HERE}', -- Replace with your account name
+    'INDIVIDUAL',
+    '{Insert Brokerage Name Here}', -- Replace with your brokerage name
+    '{If applicable, insert account number here}', -- Replace with your account number if applicable
+    'ACTIVE', --Active is the default status
+    -- '{"api_key": "your_api_key_here", "api_secret": "your_api_secret_here"}'::JSONB,
+    NOW()
+);
