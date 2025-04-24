@@ -36,9 +36,9 @@ if __name__ == "__main__":
     loader = StockDataLoader(db_config)
     
     # Download stock data for Apple and NVIDIA
-    # data = loader.download_stock_data(tickers, start_date=start_date, end_date=end_date, period='1mo', interval='1d')
+    data = loader.download_stock_data(tickers, start_date=start_date, end_date=end_date, period='1mo', interval='1d')
     # Save data to database
-    # loader.save_to_database(data)
+    loader.save_to_database(data)
 
     # Load data from database for verification
     loaded_data = loader.load_close_data_from_db(tickers, start_date=start_date, end_date=end_date)
