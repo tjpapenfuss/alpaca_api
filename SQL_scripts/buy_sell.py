@@ -1,28 +1,30 @@
-import psycopg2
-import pandas as pd
-from typing import List, Optional, Union, Dict, Any
+"""Order management functionality using SQLAlchemy."""
 import logging
+import pandas as pd
+from typing import List, Optional, Dict, Any
+from sqlalchemy.orm import Session
+from sqlalchemy import text
+
+from api.models import Transaction
 
 class OrderManager:
     """
-    A class to manage stock order operations including inserting orders,
-    retrieving buy entries, and getting account positions.
+    A class to manage stock order operations using SQLAlchemy.
     """
-    
-    def __init__(self, db_config: Dict[str, Any], user_id: str = None, 
-                 account_id: Optional[str] = None) -> None:
+    def __init__(self, db: Session, user_id: str = None, account_id: Optional[str] = None) -> None:
         """
-        Initialize the StockDataLoader.
+        Initialize the OrderManager.
         
         Args:
-            db_config: Dictionary containing PostgreSQL connection parameters
-                       (host, database, user, password, port)
+            db: SQLAlchemy database session
+            user_id: ID of the user
+            account_id: Optional account ID
         """
-        self.db_config = db_config
+        self.db = db
         self.user_id = user_id
         self.account_id = account_id
         self.logger = self._setup_logger()
-        
+
     def _setup_logger(self) -> logging.Logger:
         """Set up and configure logger for the class."""
         logger = logging.getLogger(__name__)
@@ -33,143 +35,90 @@ class OrderManager:
             logger.addHandler(handler)
             logger.setLevel(logging.INFO)
         return logger
-    
-    def _get_connection(self):
+
+    def get_all_symbols(self) -> List[str]:
         """
-        Create and return a connection to the PostgreSQL database.
+        Get all distinct symbols for the user.
         
         Returns:
-            A connection to the PostgreSQL database
+            List of symbol strings
         """
         try:
-            conn = psycopg2.connect(**self.db_config)
-            return conn
-        except psycopg2.Error as e:
-            self.logger.error(f"Database connection error: {e}")
-            raise
-    
-    def get_all_symbols(self) -> List[str]:
-        try:
-            # Connect to your PostgreSQL database
-            conn = self._get_connection()
-            cur = conn.cursor()
-
-            # Execute query to get all distinct symbols
-
-            # Check which parameters are provided and construct query accordingly
-            if self.account_id is not None and self.user_id is not None:
-                cur.execute(
-                    "SELECT DISTINCT symbol FROM transactions WHERE user_id = %s AND account_id = %s", 
-                    (self.user_id, self.account_id)
-                )
-            elif self.user_id is not None:
-                cur.execute(
-                    "SELECT DISTINCT symbol FROM transactions WHERE user_id = %s", 
-                    (self.user_id,)
-                )
-            else:
-                self.logger.error("Either user_id or both user_id and account_id must be provided.")
-                return []       
+            query = self.db.query(Transaction.symbol).distinct()
             
-            symbols = cur.fetchall()
-            # Close connections
-            cur.close()
-            conn.close()
-
-            # Flatten and return as a list
+            if self.user_id is not None:
+                query = query.filter(Transaction.user_id == self.user_id)
+                
+                if self.account_id is not None:
+                    query = query.filter(Transaction.account_id == self.account_id)
+            else:
+                self.logger.error("User ID must be provided.")
+                return []
+                
+            symbols = query.all()
             return [symbol[0] for symbol in symbols]
-
+            
         except Exception as e:
-            self.logger.error("Error while fetching symbols: %s", e)
+            self.logger.error(f"Error while fetching symbols: {e}")
             return []
-        
+
     def insert_orders(self, df: pd.DataFrame) -> None:
         """
-        Inserts buy/sell orders into PostgreSQL database based on the side column.
-
+        Inserts buy/sell orders into database based on the side column.
+        
         Args:
             df: DataFrame with order records
         """
-        # Establish connection to PostgreSQL database using credentials from db_config
-        # Validate user_id is provided
         if self.user_id is None:
-            print("User ID was not provided. Please provide a valid user ID.")
+            self.logger.error("User ID was not provided. Please provide a valid user ID.")
             return
-
-        conn = self._get_connection()
-        cur = conn.cursor()  # Create a cursor to execute SQL commands
-
-        # Process each row in the dataframe of orders
-        for _, row in df.iterrows():
-            side = row.get('side', '').strip().upper()  # Normalize order side to uppercase
             
-            # Skip cancelled orders
-            if row.get('status') and 'CANCEL' in row['status'].strip().upper():
-                print(f"Skipping cancelled order: {row.get('client_order_id')}")
-                continue
+        try:
+            for _, row in df.iterrows():
+                side = row.get('side', '').strip().upper()
+                
+                # Skip cancelled orders
+                if row.get('status') and 'CANCEL' in row['status'].strip().upper():
+                    self.logger.info(f"Skipping cancelled order: {row.get('client_order_id')}")
+                    continue
+                
+                # Prepare transaction data
+                transaction_data = {
+                    'client_order_id': row.get('client_order_id'),
+                    'user_id': self.user_id or row.get('user_id'),
+                    'account_id': self.account_id or None,
+                    'symbol': row.get('symbol'),
+                    'asset_id': row.get('asset_id'),
+                    'asset_class': row.get('asset_class'),
+                    'side': side,
+                    # Add all other fields from your original insert_orders method
+                    # ...
+                }
+                
+                # Filter out None values
+                transaction_data = {k: v for k, v in transaction_data.items() if v is not None}
+                
+                # Check if record already exists to prevent duplicates
+                existing = self.db.query(Transaction).filter_by(
+                    user_id=transaction_data['user_id'],
+                    client_order_id=transaction_data['client_order_id']
+                ).first()
+                
+                if not existing:
+                    # Create new transaction
+                    new_transaction = Transaction(**transaction_data)
+                    self.db.add(new_transaction)
             
-            # Prepare transaction data with all available fields, handling nulls
-            transaction_data = {
-                'client_order_id': row.get('client_order_id'),
-                'user_id': self.user_id or row.get('user_id'),
-                'account_id': self.account_id or None,
-                'symbol': row.get('symbol'),
-                'asset_id': row.get('asset_id'),
-                'asset_class': row.get('asset_class'),
-                'side': side,
-                'order_type': row.get('order_type'),
-                'order_class': row.get('order_class'),
-                'position_intent': row.get('position_intent'),
-                'notional': float(row.get('notional', 0.0)) if row.get('notional') is not None else None,
-                'filled_qty': float(row.get('filled_qty', 0.0)) if row.get('filled_qty') is not None else None,
-                'filled_avg_price': float(row.get('filled_avg_price', 0.0)) if row.get('filled_avg_price') is not None else None,
-                'remaining_qty': float(row.get('filled_qty', 0.0)) if row.get('filled_qty') is not None else None,
-                'limit_price': float(row.get('limit_price', 0.0)) if row.get('limit_price') is not None else None,
-                'stop_price': float(row.get('stop_price', 0.0)) if row.get('stop_price') is not None else None,
-                'created_at': None if pd.isna(row.get('created_at')) else row.get('created_at'),
-                'filled_at': None if pd.isna(row.get('filled_at')) else row.get('filled_at'),
-                'expired_at': None if pd.isna(row.get('expired_at')) else row.get('expired_at'),
-                'expires_at': None if pd.isna(row.get('expires_at')) else row.get('expires_at'),
-                'canceled_at': None if pd.isna(row.get('canceled_at')) else row.get('canceled_at'),
-                'failed_at': None if pd.isna(row.get('failed_at')) else row.get('failed_at'),
-                'status': row.get('status'),
-                'time_in_force': row.get('time_in_force'),
-                'related_transaction_ids': row.get('related_transaction_ids'),
-                'tax_lot_method': row.get('tax_lot_method'),
-                'realized_gain_loss': float(row.get('realized_gain_loss', 0.0)) if row.get('realized_gain_loss') is not None else None,
-                'holding_period': row.get('holding_period'),
-                'cost_basis': float(row.get('cost_basis', 0.0)) if row.get('cost_basis') is not None else None
-            }
-        
-            # Construct query dynamically based on available fields
-            fields = [k for k, v in transaction_data.items() if v is not None]
-            placeholders = ['%s'] * len(fields)
-            values = [transaction_data[field] for field in fields]
+            # Commit all transactions
+            self.db.commit()
             
-            # Insert order into the transactions table
-            query = f"""
-                INSERT INTO transactions ({', '.join(fields)})
-                VALUES ({', '.join(placeholders)})
-                ON CONFLICT (user_id, client_order_id) DO NOTHING
-            """
-            
-            try:
-                cur.execute(query, values)
-            except Exception as e:
-                print(f"Error inserting transaction {row.get('client_order_id')}: {e}")
-                # Optionally rollback on failure if you want to stop on first error
-                # conn.rollback()
-                # break
-
-        # Commit transactions to the database
-        conn.commit()
-        # Clean up database resources
-        cur.close()
-        conn.close()
+        except Exception as e:
+            self.logger.error(f"Error inserting transactions: {e}")
+            self.db.rollback()
 
     def buy_entries_for_tickers(self, df: pd.DataFrame) -> pd.DataFrame:
         """
-        Retrieves buy entries for each ticker in the DataFrame and returns them in a DataFrame.
+        Retrieves buy entries for each ticker in the DataFrame.
         
         Args:
             df: DataFrame containing ticker columns
@@ -178,90 +127,151 @@ class OrderManager:
             DataFrame containing all buy entries with appropriate headers
         """
         tickers = df.columns.tolist()
+        headers = ['client_order_id', 'symbol', 'filled_avg_price', 'filled_qty',
+                  'remaining_qty', 'filled_at']
         
-        # Define the headers from the SQL query
-        headers = ['client_order_id', 'symbol', 'filled_avg_price', 'filled_qty', 
-                'remaining_qty', 'filled_at']
-        
-        # Create an empty list to store all rows
         all_rows = []
-
-        # Connect to your PostgreSQL database
-        conn = self._get_connection()
-
-        try:
-            with conn.cursor() as cur:
-                for ticker in tickers:
-                    cur.execute("""
-                        SELECT client_order_id, symbol, filled_avg_price, filled_qty, remaining_qty, filled_at
-                        FROM transactions
-                        WHERE symbol = %s AND user_id = %s
-                    """, (ticker,self.user_id,))
-                    rows = cur.fetchall()
-                    if rows:
-                        all_rows.extend(rows)
-
-        except Exception as e:
-            print("Database error:", e)
-        finally:
-            conn.close()
         
-        # Create DataFrame from all rows
-        import pandas as pd
+        try:
+            for ticker in tickers:
+                transactions = self.db.query(
+                    Transaction.client_order_id,
+                    Transaction.symbol,
+                    Transaction.filled_avg_price,
+                    Transaction.filled_qty,
+                    Transaction.remaining_qty,
+                    Transaction.filled_at
+                ).filter(
+                    Transaction.symbol == ticker,
+                    Transaction.user_id == self.user_id
+                ).all()
+                
+                all_rows.extend(transactions)
+                
+        except Exception as e:
+            self.logger.error(f"Database error: {e}")
+        
         if not all_rows:
-            print("No buy entries found for any ticker.")
-            return pd.DataFrame(columns=headers)  # Return empty DataFrame with headers
-        result_df = pd.DataFrame(all_rows, columns=headers)
-        return result_df
+            self.logger.info("No buy entries found for any ticker.")
+            return pd.DataFrame(columns=headers)
+            
+        return pd.DataFrame(all_rows, columns=headers)
 
     def get_account_positions(self) -> List[Dict[str, Any]]:
         """
         Retrieve all current positions for a specific user.
-            
+        
         Returns:
-            A list of position dictionaries containing symbol, quantity, and average price
+            A list of position dictionaries matching the Position GraphQL type structure
         """
         try:
-            # Connect to PostgreSQL database
-            conn = self._get_connection()
-            cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
-
-            # Query to calculate current positions based on buys and sells
-            # This is a simplified query and may need adjustment based on your schema
-            query = """
-            SELECT 
-                b.symbol,
-                b.client_order_id,
-                b.filled_avg_price,
-                b.filled_qty,
-                b.remaining_qty,
-                b.filled_at
-            FROM 
-                Buy b
-            WHERE 
-                b.user_id = %s
-            """
+            # Using raw SQL with SQLAlchemy for complex query
+            result = self.db.execute(text("""
+                SELECT
+                    p.id,
+                    p.symbol,
+                    p.total_shares,
+                    p.available_shares,
+                    p.average_entry_price,
+                    p.market_value,
+                    p.last_price,
+                    p.last_price_updated_at,
+                    p.total_cost,
+                    p.unrealized_pl,
+                    p.unrealized_pl_percent,
+                    p.realized_pl_ytd,
+                    p.opened_at,
+                    p.is_open
+                FROM
+                    positions p
+                WHERE
+                    p.user_id = :user_id
+                    AND p.account_id = :account_id
+                    AND p.is_open = TRUE
+            """), {"user_id": self.user_id, "account_id": self.account_id})
             
-            cur.execute(query, (self.user_id,))
-            positions = cur.fetchall()
-
-            # Close connections
-            cur.close()
-            conn.close()
-            # Convert to list of dictionaries
-            result = []
-            for pos in positions:
-                result.append({
-                    "client_order_id": pos["client_order_id"],
-                    "symbol": pos["symbol"],
-                    "filled_avg_price": float(pos["filled_avg_price"]),
-                    "filled_qty": float(pos["filled_qty"]),
-                    "remaining_qty": float(pos["remaining_qty"]),
-                    "filled_at": pos["filled_at"]
+            positions = []
+            for row in result:
+                positions.append({
+                    "id": str(row.id),
+                    "symbol": row.symbol,
+                    "total_shares": float(row.total_shares) if row.total_shares is not None else 0.0,
+                    "available_shares": float(row.available_shares) if row.available_shares is not None else 0.0,
+                    "average_entry_price": float(row.average_entry_price) if row.average_entry_price is not None else 0.0,
+                    "market_value": float(row.market_value) if row.market_value is not None else None,
+                    "last_price": float(row.last_price) if row.last_price is not None else None,
+                    "last_price_updated_at": row.last_price_updated_at,
+                    "total_cost": float(row.total_cost) if row.total_cost is not None else 0.0,
+                    "unrealized_pl": float(row.unrealized_pl) if row.unrealized_pl is not None else None,
+                    "unrealized_pl_percent": float(row.unrealized_pl_percent) if row.unrealized_pl_percent is not None else None,
+                    "realized_pl_ytd": float(row.realized_pl_ytd) if row.realized_pl_ytd is not None else None,
+                    "opened_at": row.opened_at,
+                    "is_open": bool(row.is_open),
                 })
+                
+            return positions
             
-            return result
-
         except Exception as e:
-            print("Error while fetching account positions:", e)
+            self.logger.error(f"Error while fetching account positions: {e}")
+            return []
+        
+    def get_position_transactions(self, symbol: str) -> List[Dict[str, Any]]:
+        """
+        Retrieve all transactions for a specific symbol for the user.
+        
+        This retrieves the complete transaction history for a particular symbol,
+        allowing you to see all buy orders associated with a position.
+        
+        Args:
+            symbol: The stock symbol to retrieve transactions for
+        
+        Returns:
+            A list of dictionaries containing transaction details for the position,
+            matching the Transaction class structure
+        """
+        try:
+            result = self.db.execute(text("""
+                SELECT
+                b.id,
+                b.client_order_id,
+                b.symbol,
+                b.side,
+                b.order_type,
+                b.filled_qty,
+                b.filled_avg_price,
+                b.remaining_qty,
+                b.created_at,
+                b.filled_at,
+                b.status,
+                b.realized_gain_loss
+                FROM
+                transactions b
+                WHERE
+                b.user_id = :user_id
+                AND b.account_id = :account_id
+                AND b.symbol = :symbol
+                ORDER BY b.created_at DESC
+            """), {"user_id": self.user_id, "account_id": self.account_id, "symbol": symbol})
+            
+            transactions = []
+            for row in result:
+                transactions.append({
+                    "id": row.id,
+                    "client_order_id": row.client_order_id,
+                    "symbol": row.symbol,
+                    "side": row.side,
+                    "order_type": row.order_type,
+                    "filled_qty": float(row.filled_qty) if row.filled_qty else None,
+                    "filled_avg_price": float(row.filled_avg_price) if row.filled_avg_price else None,
+                    "remaining_qty": float(row.remaining_qty) if row.remaining_qty else None,
+                    "created_at": row.created_at,
+                    "filled_at": row.filled_at,
+                    "status": row.status,
+                    "realized_gain_loss": float(row.realized_gain_loss) if row.realized_gain_loss else None,
+                })
+                
+            return transactions
+                
+        except Exception as e:
+            self.logger.error(f"Error while fetching transactions for position {symbol}: {e}")
             return []

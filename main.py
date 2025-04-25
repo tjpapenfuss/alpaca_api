@@ -14,6 +14,7 @@ from utils.stock_data import get_stock_data, find_top_loss_stocks
 
 import psycopg2
 from SQL_scripts.legacy_stock_data import StockDataLoader
+from SQL_scripts.position import PositionManager
 
 # Function to get Buy entries for a specific symbol
 # def get_buy_entries_for_symbol(symbol):
@@ -54,8 +55,18 @@ if __name__ == '__main__':
         'password': os.getenv('db_config.password'),
         'port': int(os.getenv('db_config.port'))
     }
-    loader = StockDataLoader(db_config)
-    orderer = OrderManager(db_config=db_config, user_id=os.getenv('user_id'), account_id=os.getenv('account_id'))
+    from api.db import SessionLocal
+
+    db = SessionLocal()
+    try:
+        orderer = OrderManager(db=db, user_id=os.getenv('user_id'), account_id=os.getenv('account_id'))
+        loader = StockDataLoader(db=db)
+        position_mgr = PositionManager(db=db, user_id=os.getenv('user_id'), account_id=os.getenv('account_id'))
+    finally:
+        db.close()
+
+    position_mgr.hydrate_positions()
+
     # --------------------#
     # This block of code can be used to pull in transactions from alpaca.markets. 
     # This will only pull in transactions 500 at a time so be careful with how many transactions you have. 
